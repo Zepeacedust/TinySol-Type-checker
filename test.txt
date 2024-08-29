@@ -1,6 +1,7 @@
+
 contract X { 
     go () { 
-        if (Y . balance = 0 ) 
+        if (Y . balance == 0 ) 
         then { Z . a () :0 }
         else { Z . b () :0 }
     } 

@@ -59,9 +59,9 @@ class Parser:
 
     def statements(self):
         statements= []
-        self.statements.append(self.statement)
+        statements.append(self.statement())
         while self.lexer.lookahead().text == ";":
-            statements.append(self.statement)
+            statements.append(self.statement())
         
         return statements
 
@@ -121,29 +121,52 @@ class Parser:
             return AST.WhileStmt(first.pos, cond, stmts)
         
     def expression(self):
-        first = self.lexer.next_token()
-        if first.type == TokenType.CONSTANT:
-            if first.text.isdigit():
-                curr =  AST.IntConstantExpr(first.pos, int(first))
-            else:
-                curr = AST.BoolConstantExpr(first.pos, first.text=="T")
+        first = self.comparison()
+        while self.lexer.lookahead().text in ["||", "&&"]:
+            op = self.lexer.expect(type=TokenType.CONTROL)
+            rhs = self.comparison()
+            first = AST.BinaryOp(op.pos, op.text, first, rhs)
 
     def comparison(self):
-        pass
+        first = self.multiplication()
+        while self.lexer.lookahead().text in ["==", "<", ">", "<=", ">="]:
+            op = self.lexer.expect(type=TokenType.CONTROL)
+            rhs = self.multiplication()
+            first = AST.BinaryOp(op.pos, op.text, first, rhs)
 
     def multiplication(self):
-        pass
+        first = self.addition()
+        while self.lexer.lookahead().text in ["*", "//"]:
+            op = self.lexer.expect(type=TokenType.CONTROL)
+            rhs = self.addition()
+            first = AST.BinaryOp(op.pos, op.text, first, rhs)
 
     def addition(self):
-        pass
+        first = self.unary()
+        while self.lexer.lookahead().text in ["+", "-"]:
+            op = self.lexer.expect(type=TokenType.CONTROL)
+            rhs = self.unary()
+            first = AST.BinaryOp(op.pos, op.text, first, rhs)
 
     def unary(self):
         first = self.lexer.next_token()
         if first.type == TokenType.CONSTANT:
             if first.text.isdigit():
-                curr =  AST.IntConstantExpr(first.pos, int(first))
+                curr =  AST.IntConstantExpr(first.pos, int(first.text))
             else:
                 curr = AST.BoolConstantExpr(first.pos, first.text=="T")
         
         if first.type == TokenType.IDENTIFIER:
-            curr = AST
+            curr = AST.VariableExpr(first.pos, first.text)
+            while self.lexer.lookahead().text == ".":
+                self.lexer.expect(text=".")
+                field = self.lexer.expect(type=TokenType.IDENTIFIER)
+                curr = AST.FieldExpr(first.pos, curr, field.text)
+
+        if first.text == "(":
+            curr = self.expression()
+
+            self.lexer.expect(text=")")
+        
+        return curr
+        

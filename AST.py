@@ -79,10 +79,10 @@ class BoolConstantExpr(Node):
         super().__init__(pos)
         self.value = value
 
-class FieldLookupExpr(Node):
-    def __init__(self, pos, expr, name) -> None:
+class BinaryOp(Node):
+    def __init__(self, pos, op, lhs, rhs) -> None:
         super().__init__(pos)
-        self.expr = expr
-        self.name = name
 
-class VarLookupExpr(Node)
+class UnaryOp(Node):
+    def __init__(self, pos, op, operand) -> None:
+        super().__init__(pos)

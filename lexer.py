@@ -133,4 +133,13 @@ class Lexer:
             if first == ":" and self.ch == "=":
                 self.next_character()
                 return Token(":=", TokenType.CONTROL, self.tell())
+            if first == "=" and self.ch == "=":
+                self.next_character()
+                return Token("==", TokenType.CONTROL, self.tell())
+            if first == "<" and self.ch == "=":
+                self.next_character()
+                return Token("<=", TokenType.CONTROL, self.tell())
+            if first == ">" and self.ch == "=":
+                self.next_character()
+                return Token(">=", TokenType.CONTROL, self.tell())
             return Token(first, TokenType.CONTROL, self.tell())
