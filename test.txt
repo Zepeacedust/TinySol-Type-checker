@@ -1,9 +1,16 @@
-contract X { contract Y {
-field called := F; deposit ( x ) {
-transfer ( z ) { x . transfer ( t h i s ) :0
-if ¬called ∧ t h i s . balance ≥ 1 }
-then z . deposit ( t h i s ) :1; }
-t h i s . called := T;
-else skip
+contract X { 
+    go () { 
+        if (Y . balance = 0 ) 
+        then { Z . a () :0 }
+        else { Z . b () :0 }
+    } 
 }
+
+contract Y {
+    field balance = v ;
+}
+
+contract Z {
+    a () { }
+    b () { }
 }

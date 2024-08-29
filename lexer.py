@@ -26,6 +26,11 @@ CONTROL = [
     "}",
 ]
 
+BOOL_CONSTANTS= [
+    "T",
+    "F",
+]
+
 KEYWORDS = [
     "contract",
     "field",
@@ -117,6 +122,10 @@ class Lexer:
                 name += self.next_character()
             if name in KEYWORDS:
                 return Token(name, TokenType.KEYWORD, self.tell())
+        
+            if name in BOOL_CONSTANTS:
+                return Token(name, TokenType.CONSTANT)
+
             return Token(name, TokenType.IDENTIFIER, self.tell())
 
         if self.ch in CONTROL:
