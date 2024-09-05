@@ -7,7 +7,7 @@ class Parser:
         self.lexer = Lexer(filename)
 
     def parse(self):
-        print(self.contract())
+        print(self.contract().pprint())
         
         token = self.lexer.next_token()
         while token.type != TokenType.EOF:
@@ -31,6 +31,7 @@ class Parser:
         while self.lexer.lookahead().text != "}":
             methods.append(self.method())
         
+        self.lexer.expect(text="}")
         return AST.Contract(name.pos, name.text, fields, methods)
 
     def field(self):
@@ -67,15 +68,6 @@ class Parser:
 
     def statement(self):
         first = self.lexer.lookahead()
-        # expression or assigment are the only ones that can start on an identifer
-        if first.type == TokenType.IDENTIFIER:
-            expression = self.expression()
-            if isinstance(expression, AST.VariableExpr) or isinstance(expression, AST.FieldExpr):
-                if self.lexer.lookahead().text == ":=":
-                    self.lexer.expect(text=":=")
-                    value_expression = self.expression()
-                    return AST.AssignementStmt(first.pos, expression, value_expression)
-            return expression
         
         if first.text == "skip":
             self.lexer.expect(text="skip")
@@ -120,12 +112,34 @@ class Parser:
             self.lexer.expect(text="}")
             return AST.WhileStmt(first.pos, cond, stmts)
         
+
+        # expression or assigment are the only ones that can start on an identifer
+        expression = self.expression()
+        if isinstance(expression, AST.VariableExpr) or isinstance(expression, AST.FieldExpr):
+            if self.lexer.lookahead().text == ":=":
+                self.lexer.expect(text=":=")
+                value_expression = self.expression()
+                return AST.AssignementStmt(first.pos, expression, value_expression)
+        if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == "(":
+            self.lexer.expect(text="(")
+            parameters = []
+            if self.lexer.lookahead().text != ")":
+                parameters.append(self.lexer.expect(type=TokenType.IDENTIFIER).text)
+                while self.lexer.lookahead().text == ",":
+                    parameters.append(expression)
+            self.lexer.expect(text=")")
+            self.lexer.expect(text=":")
+            cost = self.expression()
+            return AST.MethodCall(expression.pos, expression.name, expression.field, parameters, cost)
+        
     def expression(self):
         first = self.comparison()
         while self.lexer.lookahead().text in ["||", "&&"]:
             op = self.lexer.expect(type=TokenType.CONTROL)
             rhs = self.comparison()
             first = AST.BinaryOp(op.pos, op.text, first, rhs)
+        return first
+
 
     def comparison(self):
         first = self.multiplication()
@@ -133,6 +147,8 @@ class Parser:
             op = self.lexer.expect(type=TokenType.CONTROL)
             rhs = self.multiplication()
             first = AST.BinaryOp(op.pos, op.text, first, rhs)
+        return first
+
 
     def multiplication(self):
         first = self.addition()
@@ -140,6 +156,8 @@ class Parser:
             op = self.lexer.expect(type=TokenType.CONTROL)
             rhs = self.addition()
             first = AST.BinaryOp(op.pos, op.text, first, rhs)
+        return first
+
 
     def addition(self):
         first = self.unary()
@@ -147,6 +165,7 @@ class Parser:
             op = self.lexer.expect(type=TokenType.CONTROL)
             rhs = self.unary()
             first = AST.BinaryOp(op.pos, op.text, first, rhs)
+        return first
 
     def unary(self):
         first = self.lexer.next_token()

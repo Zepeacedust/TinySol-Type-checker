@@ -1,6 +1,9 @@
 class Node:
     def __init__(self, pos) -> None:
         self.pos = pos
+    
+    def pprint(self):
+        return "(Empty node, this should not happen)"
 
 class Contract(Node):
     def __init__(self, pos, name, fields, methods) -> None:
@@ -8,12 +11,27 @@ class Contract(Node):
         self.name = name
         self.fields = fields
         self.methods = methods
+    
+    def pprint(self):
+        string = f"contract {self.name}" + " {\n"
+        for field in self.fields:
+            string += "\t" + field.pprint().replace("\n", "\t\n")
+        
+        for method in self.methods:
+            string += "\t" + method.pprint().replace("\n", "\t\n")
+
+        string += "}"
+
+        return string
 
 class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
         super().__init__(pos)
         self.name = name
         self.value = value
+    
+    def pprint(self):
+        return f"field {self.name} := {self.value};"
 
 class MethodDec(Node):
     def __init__(self, pos, name, parameters, statements) -> None:
@@ -21,6 +39,13 @@ class MethodDec(Node):
         self.name = name
         self.parameters = parameters
         self.statements = statements
+    
+    def pprint(self):
+        string = f"{self.name}({', '.join(self.parameters)})" + " {\n" 
+        for statement in self.statements:
+            string += "\t" + statement.pprint().replace("\n", "\t\n")
+        return string + "\n}\n"
+        
 
 class ThrowStmt(Node):
     def __init__(self, pos) -> None:
@@ -82,7 +107,14 @@ class BoolConstantExpr(Node):
 class BinaryOp(Node):
     def __init__(self, pos, op, lhs, rhs) -> None:
         super().__init__(pos)
+        self.op = op
+        self.lhs=lhs
+        self.rhs = rhs
 
 class UnaryOp(Node):
     def __init__(self, pos, op, operand) -> None:
+        super().__init__(pos)
+
+class MethodCall(Node):
+    def __init__(self, pos, name, method, variables,cost) -> None:
         super().__init__(pos)
