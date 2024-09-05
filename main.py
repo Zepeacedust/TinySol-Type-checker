@@ -1,5 +1,4 @@
-from parser import Parser
+from TypeChecker import TypeChecker
+test = TypeChecker("test.txt")
 
-test = Parser("test.txt")
-
-test.parse()
+test.type_check()
