@@ -25,7 +25,7 @@ class Parser:
 
     def interface(self):
         self.lexer.expect(text="interface")
-        name = self.lexer.expect(type=TokenType.IDENTIFIER)
+        name = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect("{")
 
         field_types = []
@@ -38,7 +38,7 @@ class Parser:
 
         self.lexer.expect("}")
 
-        return Typing.Interface(field_types, method_types)
+        return Typing.Interface(name, field_types, method_types)
 
     def field_interface(self):
         self.lexer.expect(text="field")
@@ -51,7 +51,7 @@ class Parser:
     
     def method_interface(self):
         self.lexer.expect("method")
-        name = self.lexer.expect(type=TokenType.IDENTIFIER)
+        name = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect(":")
         self.lexer.expect("(")
         variables = []
@@ -87,7 +87,7 @@ class Parser:
         
         self.lexer.expect(text="}")
 
-        return AST.Contract(name.pos, name.text, fields, methods)
+        return AST.Contract(name.pos, name.text, interface.text, fields, methods)
 
     def field(self):
         self.lexer.expect(text="field")
@@ -115,7 +115,9 @@ class Parser:
 
     def statements(self):
         statements= []
-        statements.append(self.statement())
+        statement = self.statement()
+        if statement != None:
+            statements.append(statement)
         while self.lexer.lookahead().text == ";":
             statements.append(self.statement())
         

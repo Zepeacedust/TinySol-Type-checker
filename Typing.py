@@ -1,5 +1,6 @@
 class Interface:
-    def __init__(self, fields, methods) -> None:
+    def __init__(self, name, fields, methods) -> None:
+        self.name = name
         self.fields = fields
         self.methods = methods
 
@@ -9,14 +10,28 @@ class Field:
         self.type = type
 
 class Method:
-    def __init__(self, name, vars, own_type) -> None:
+    def __init__(self, name, vars, type) -> None:
         self.name = name
         self.vars = vars
-        self.own_type = own_type
+        self.type = type
 
 class Type:
     def __init__(self) -> None:
         pass
 
 class TypeEnvironment:
-    pass
+    def __init__(self, globals) -> None:
+        self.stack = [globals]
+
+    def push(self, binding):
+        self.stack.append(binding)
+
+    def pop(self):
+        self.stack.pop()
+
+    def lookup(self, name):
+        ind = len(self.stack) - 1
+        while ind >= 0:
+            if name in self.stack[ind]:
+                return self.stack[ind][name]
+            ind -= 1
