@@ -2,6 +2,14 @@ class Node:
     def __init__(self, pos) -> None:
         self.pos = pos
 
+class Blockchain(Node):
+    def __init__(self, interfaces, contracts, transactions) -> None:
+        super().__init__((0,0))
+        self.interfaces = interfaces
+        self.contracts = contracts
+        self.transactions=transactions
+
+
 class Contract(Node):
     def __init__(self, pos, name, fields, methods) -> None:
         super().__init__(pos)
@@ -62,9 +70,10 @@ class WhileStmt(Node):
         self.stmts = stmts
 
 class BindStmt(Node):
-    def __init__(self, pos, name, expr, stmts) -> None:
+    def __init__(self, pos, name, level, expr, stmts) -> None:
         super().__init__(pos)
         self.name = name
+        self.level = level
         self.expr = expr
         self.stmts = stmts
 
@@ -86,3 +95,11 @@ class BinaryOp(Node):
 class UnaryOp(Node):
     def __init__(self, pos, op, operand) -> None:
         super().__init__(pos)
+
+class MethodCall(Node):
+    def __init__(self, pos, name, method, vars, cost) -> None:
+        super().__init__(pos)
+        self.name = name
+        self.method = method
+        self.vars = vars
+        self.cost = cost

@@ -33,6 +33,7 @@ BOOL_CONSTANTS= [
 
 KEYWORDS = [
     "contract",
+    "interface",
     "field",
     "skip",
     "throw",
@@ -72,7 +73,7 @@ class Lexer:
         self.char = 0
         self.next_character()
         self.lookahead_buffer = None
-    
+    #return the location of the current character
     def tell(self):
         return (self.line, self.char)
     
@@ -85,11 +86,15 @@ class Lexer:
         self.ch = self.file.read(1)
         return out
 
+
+    # return the next token that will be generated, can only look one token ahead
     def lookahead(self) -> Token:
         if self.lookahead_buffer == None:
             self.lookahead_buffer = self.next_token()
         return self.lookahead_buffer
 
+    # generate a token, if the token does not match the attributes, throw an error
+    # else, return it
     def expect(self, text = None, type:TokenType=None) -> Token:
         out = self.next_token()
         if type != None and out.type != type:
@@ -130,6 +135,9 @@ class Lexer:
 
         if self.ch in CONTROL:
             first = self.next_character()
+            if first == "-" and self.ch == ">":
+                self.next_character()
+                return Token("->", TokenType.CONTROL, self.tell())
             if first == ":" and self.ch == "=":
                 self.next_character()
                 return Token(":=", TokenType.CONTROL, self.tell())
