@@ -1,22 +1,22 @@
-from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool
+from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool, TypeEnvironment, Interface
 
 class Node:
     def __init__(self, pos) -> None:
-        self.pos = pos
+        self.pos:tuple[int, int] = pos
         self.type_assignment = None
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         return NotImplemented
 
 
 class Blockchain(Node):
     def __init__(self, interfaces, contracts, transactions) -> None:
         super().__init__((0,0))
-        self.interfaces = interfaces
-        self.contracts = contracts
-        self.transactions= transactions
+        self.interfaces:list[Interface] = interfaces
+        self.contracts:list[Contract] = contracts
+        self.transactions:list[Transaction] = transactions
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         for contract in self.contracts:
             contract.type_check(type_env)
 
@@ -24,10 +24,10 @@ class Blockchain(Node):
 class Contract(Node):
     def __init__(self, pos, name, type,  fields, methods) -> None:
         super().__init__(pos)
-        self.name = name
-        self.type = type
-        self.fields = fields
-        self.methods = methods
+        self.name:str = name
+        self.type:Type = type
+        self.fields:list[FieldDec] = fields
+        self.methods:list[MethodDec] = methods
     
     def pprint(self):
         string = f"contract {self.name}" + " {\n"
@@ -41,7 +41,7 @@ class Contract(Node):
 
         return string
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         obj = type_env.lookup(self.type.obj)
         self.type_assignment = Type(obj, self.type.sec)
         type_env.push({self.name:self.type_assignment})
@@ -57,10 +57,10 @@ class Contract(Node):
 class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
         super().__init__(pos)
-        self.name = name
+        self.name:str = name
         self.value = value
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         interface = type_env.lookup("this").obj
         
         for field in interface.fields:
@@ -74,9 +74,9 @@ class FieldDec(Node):
 class MethodDec(Node):
     def __init__(self, pos, name, parameters, statements) -> None:
         super().__init__(pos)
-        self.name = name
-        self.parameters = parameters
-        self.statements = statements
+        self.name:str = name
+        self.parameters:list[str] = parameters
+        self.statements:list[Node] = statements
     
     def pprint(self):
         string = f"{self.name}({', '.join(self.parameters)})" + " {\n" 
@@ -85,16 +85,12 @@ class MethodDec(Node):
         return string + "\n}\n"
         
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         interface = type_env.lookup("this").obj
-        found = False
-        for method in interface.methods:
-            if method.name == self.name:
-                self.type_assignment = method.type
-                found = True
-                break
+        method = interface.get_method()
 
-        if not found:
+
+        if method == None:
             raise Exception(f"{self.name} not included in interface {interface.name}")
         
         cmd_level = CmdType(SecurityLevel(0, max=True))
@@ -124,7 +120,7 @@ class VariableExpr(Node):
         super().__init__(pos)
         self.name = name
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = type_env.lookup(self.name)
         return self.type_assignment
 
@@ -136,7 +132,7 @@ class FieldExpr(Node):
         self.name = name
         self.field = field
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.name.type_check(type_env)
         interface = self.name.type_assignment.obj
         for field in interface.fields:
@@ -148,7 +144,7 @@ class SkipStmt(Node):
     def __init__(self, pos) -> None:
         super().__init__(pos)
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = CmdType(SecurityLevel(max=True))
         return self.type_assignment
         
@@ -159,7 +155,7 @@ class IfStmt(Node):
         self.true_stmts = true_stmts
         self.false_stmts = false_stmts
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         # TODO: ensure that the types for the conditional, true, and false statements are compatible
         
         cmd_lvl = CmdType(SecurityLevel(max=True))
@@ -185,7 +181,7 @@ class WhileStmt(Node):
         self.cond = cond
         self.stmts = stmts
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         # TODO: derive type from condition and statements
         self.cond.type_check(type_env)
         for statement in self.stmts:
@@ -201,7 +197,7 @@ class BindStmt(Node):
         self.expr = expr
         self.stmts = stmts
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         type_env.push({self.name:self})
         self.expr.type_check(type_env)
         cmd_lvl = CmdType(SecurityLevel(max=True))
@@ -220,7 +216,7 @@ class IntConstantExpr(Node):
         super().__init__(pos)
         self.value = value
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = Type(Int(), SecurityLevel(min=True))
         return self.type_assignment
 
@@ -233,7 +229,7 @@ class BoolConstantExpr(Node):
         self.value = value
 
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = Type(Bool(), SecurityLevel(min=True))
         return self.type_assignment
 
@@ -246,24 +242,28 @@ class BinaryOp(Node):
         self.lhs=lhs
         self.rhs = rhs
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.lhs.type_check(type_env)
         self.rhs.type_check(type_env)
 
+        #operators on ints that give ints
         if self.op in ["+", "-", "*"]:
             assert isinstance(self.lhs.type_assignment, Int) 
             assert isinstance(self.rhs.type_assignment, Int)
             self.type_assignment = Type(Int(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
             self.type_assignment = Type(Int(), self.lhs.type_assignment.join(self.rhs.type_assignment))
+        #operators on ints that give bools
         elif self.op in ["<",">",">=","<="]:
             assert isinstance(self.lhs.type_assignment, Int) 
             assert isinstance(self.rhs.type_assignment, Int)
             self.type_assignment = Type(Bool(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
+        #operators on bool that give bools
         elif self.op in ["and", "or"]:
             if not isinstance(self.lhs.type_assignment, Bool):
                 raise TypeError(f"Expected bool, but got {type(self.lhs.type_assignment)} {self.lhs.type_assignment}")
             assert isinstance(self.rhs.type_assignment, Bool)
             self.type_assignment = Type(Bool(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
+        #operations on comparable types that give bools
         elif self.op == "==":
             if not type(self.lhs.type_assignment.obj) == type(self.rhs.type_assignment.obj):
                 raise TypeError(f"Incomparable types {type(self.lhs.type_assignment.obj)} and {type(self.rhs.type_assignment.obj)} at {self.pos}")
@@ -279,7 +279,7 @@ class UnaryOp(Node):
         self.op = op
         self.operand = operand
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = self.operand.type_check(type_env)
         return self.type_assignment
 
@@ -291,7 +291,7 @@ class MethodCall(Node):
         self.vars = vars
         self.cost = cost
 
-    def type_check(self, type_env):
+    def type_check(self, type_env:TypeEnvironment):
         self.name.type_check(type_env)
         interface = self.name.type_assignment.obj
 
@@ -299,6 +299,30 @@ class MethodCall(Node):
 
         for method in interface.methods:
             if method.name == self.method:
+                
                 self.type_assignment = method.type.cmd_level
                 return self.type_assignment
+        return super().type_check(type_env)
+    
+
+class Transaction(Node):
+    def __init__(self, pos, caller, callee, method, variables, cost) -> None:
+        super().__init__(pos)
+        self.caller = caller
+        self.callee = callee
+        self.method = method
+        self.variables = variables
+        self.cost = cost
+    
+    def type_check(self, type_env:TypeEnvironment):
+        interface = type_env.lookup(self.callee).obj
+
+        method = interface.get_method(self.method)
+
+        if method == None:
+            raise Exception(f"{self.method} not included in interface {interface.name}")
+
+        for variable in method.vars:
+            print(variable)        
+
         return super().type_check(type_env)

@@ -86,7 +86,7 @@ class Parser:
         methods = []
 
         while self.lexer.lookahead().text != "}":
-            methods.append(self.method())
+            methods.append(self.method_dec())
         
         self.lexer.expect(text="}")
 
@@ -100,7 +100,7 @@ class Parser:
         self.lexer.expect(text=";")
         return AST.FieldDec(name.pos, name.text, int(value.text))
     
-    def method(self):
+    def method_dec(self):
         name = self.lexer.expect(type=TokenType.IDENTIFIER)
         self.lexer.expect(text="(")
         parameters = []
@@ -121,7 +121,7 @@ class Parser:
         statement = self.statement()
         if statement != None:
             statements.append(statement)
-        while self.lexer.lookahead().text == ";":
+        while self.lexer.lookahead().text == "}":
             statements.append(self.statement())
         
         return statements
@@ -182,20 +182,7 @@ class Parser:
             return AST.BindStmt(name.pos, name.text,level, expr, statements)
         
         if first.text == "if":
-            self.lexer.expect(text="if")
-            cond = self.expression()
-
-            self.lexer.expect(text="then")
-            self.lexer.expect(text="{")
-            true_stmts = self.statements()
-            self.lexer.expect(text="}")
-            
-            self.lexer.expect(text="else")
-            self.lexer.expect(text="{")
-            false_stmts = self.statements()
-            self.lexer.expect(text="}")
-            
-            return AST.IfStmt(first.pos, cond, true_stmts, false_stmts)
+            return self.if_stmt()
         
         if first.text == "while":
             self.lexer.expect(text="while")
@@ -226,6 +213,22 @@ class Parser:
             cost = self.expression()
             return AST.MethodCall(expression.pos, expression.name, expression.field, parameters, cost)
         
+    def if_stmt(self):
+        first = self.lexer.expect(text="if")
+        cond = self.expression()
+
+        self.lexer.expect(text="then")
+        self.lexer.expect(text="{")
+        true_stmts = self.statements()
+        self.lexer.expect(text="}")
+        
+        self.lexer.expect(text="else")
+        self.lexer.expect(text="{")
+        false_stmts = self.statements()
+        self.lexer.expect(text="}")
+        
+        return AST.IfStmt(first.pos, cond, true_stmts, false_stmts)
+
     def expression(self):
         first = self.comparison()
         while self.lexer.lookahead().text in ["||", "&&"]:
@@ -300,3 +303,23 @@ class Parser:
 
         return Typing.Type(base.text, level)
         
+    def transaction(self):
+        caller = self.lexer.expect(type=TokenType.IDENTIFIER)
+        self.lexer.expect("->")
+        callee = self.lexer.expect(type=TokenType.IDENTIFIER)
+        self.lexer.expect(".")
+        method = self.lexer.expect(type=TokenType.IDENTIFIER)
+        self.lexer.expect("(")
+        variables = []
+        while self.lexer.lookahead().text != ")":
+            variables.append(self.expression())
+            if self.lexer.lookahead().text == ",":
+                self.lexer.next_token()
+            else:
+                break
+        self.lexer.expect(")")
+        self.lexer.expect(":")
+        cost = int(self.lexer.expect(type=TokenType.CONSTANT))
+        self.lexer.expect(";")
+        
+        return AST.Transaction(caller.pos, caller, callee, method, variables, cost)

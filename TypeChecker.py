@@ -9,14 +9,25 @@ class TypeChecker:
     def type_check(self):
         ast = self.parser.parse()
         
-        globals = {"int":Typing.Int(), "bool":Typing.Bool()}
+        interfaces = {
+            "int":Typing.Int(), 
+            "bool":Typing.Bool(), 
+            "obj":Typing.Interface(
+                "obj",
+                [
+                    Typing.Field("balance", Typing.Type(Typing.Int(), Typing.SecurityLevel(0,max=True)))
+                ],
+                [
+                    Typing.Method("send", {}, Typing.ProcType({}, Typing.CmdType(Typing.SecurityLevel(0,min=True))))
+                ]
+            )
+        }
 
         for interface in ast.interfaces:
-            globals[interface.name] = interface
+            interfaces[interface.name] = interface
 
-        print(globals)
 
-        type_environment = Typing.TypeEnvironment(globals)
+        type_environment = Typing.TypeEnvironment({}, interfaces)
 
         for interface in ast.interfaces:
             interface.type_check(type_environment)

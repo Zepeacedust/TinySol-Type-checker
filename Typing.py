@@ -1,10 +1,10 @@
 class Interface:
     def __init__(self, name, fields, methods) -> None:
         self.name = name
-        self.fields = fields
-        self.methods = methods
+        self.fields:list[Field] = fields
+        self.methods:list[Method] = methods
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:"TypeEnvironment") -> None:
         for field in self.fields:
             field.type_check(type_env)
         
@@ -15,28 +15,38 @@ class Interface:
 
         type_env.pop()
 
-class Int:
-    def __init__(self) -> None:
-        pass
+    def get_method(self, name) -> "Method":
+        for method in self.methods:
+            if method.name == name:
+                return method
 
-class Bool:
+    def get_field(self, name) -> "Field":
+        for field in self.fields:
+            if field.name == name:
+                return field
+
+class Int(Interface):
     def __init__(self) -> None:
-        pass
+        super().__init__("int", [], [])
+
+class Bool(Interface):
+    def __init__(self) -> None:
+        super().__init__("bool", [], [])
 
 
 class Field:
     def __init__(self, name, type) -> None:
-        self.name = name
-        self.type = type
+        self.name:str = name
+        self.type:VarType = type
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:"TypeEnvironment"):
         self.type.obj = type_env.lookup(self.type.obj)
 
 class Method:
     def __init__(self, name, vars, type) -> None:
-        self.name = name
-        self.vars = vars
-        self.type = type
+        self.name:str = name
+        self.vars:dict[str:Type] = vars
+        self.type:ProcType = type
     
     def type_check(self, type_env):
         for variable in self.type.variables:
@@ -45,18 +55,18 @@ class Method:
 
 class Type:
     def __init__(self, obj, sec) -> None:
-        self.obj = obj
-        self.sec = sec
+        self.obj:Interface = obj
+        self.sec:SecurityLevel = sec
 
 class VarType:
     def __init__(self, type) -> None:
-        self.type = type
+        self.type:Type = type
 
 class CmdType:
     def __init__(self, level) -> None:
-        self.level = level
+        self.level:SecurityLevel = level
 
-    def join(self,other):
+    def join(self,other:"CmdType") -> "CmdType":
         if self.level<other.level:
             return self
         return other
@@ -64,13 +74,13 @@ class CmdType:
 
 class ProcType:
     def __init__(self, variables, cmd_level) -> None:
-        self.variables = variables
-        self.cmd_level = cmd_level
+        self.variables:dict[str:Type] = variables
+        self.cmd_level:CmdType = cmd_level
 
 class SecurityLevel:
     def __init__(self, level=0, min=False, max=False) -> None:
-        self.level = level
-        self.extreme = 0
+        self.level:int = level
+        self.extreme:int = 0
         if min:
             self.extreme = -1
         elif max:
@@ -89,12 +99,12 @@ class SecurityLevel:
         if self.extreme == other.extreme:
             return self.level <= other.level
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if self.extreme == other.extreme:
             return self.level == other.level
         return self.level == other.level
     
-    def join(self,other):
+    def join(self,other: "SecurityLevel") -> "SecurityLevel":
         if self<other:
             return other
         return self
@@ -102,18 +112,22 @@ class SecurityLevel:
 
 
 class TypeEnvironment:
-    def __init__(self, globals) -> None:
-        self.stack = [globals]
+    def __init__(self, globals, interfaces) -> None:
+        self.stack:list[dict[str,Type]] = [globals]
+        self.interfaces:dict[str,Interface] = interfaces
 
-    def push(self, binding):
+    def push(self, binding:dict[str:Type]) -> None:
         self.stack.append(binding)
 
-    def pop(self):
+    def pop(self) -> None:
         self.stack.pop()
 
-    def lookup(self, name):
+    def lookup(self, name)-> Type:
         ind = len(self.stack) - 1
         while ind >= 0:
             if name in self.stack[ind]:
                 return self.stack[ind][name]
             ind -= 1
+    
+    def get_interface(self, name:str) -> Interface:
+        return self.interfaces[name]
