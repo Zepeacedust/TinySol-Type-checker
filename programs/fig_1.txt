@@ -1,0 +1,24 @@
+interface low {
+    field called : (bool, 0);
+}
+
+interface high {
+
+}
+
+
+contract X { 
+    field called := F;
+    transfer ( z ) { 
+        if (called == F and this.balance >= 1) {
+            then z . deposit ( this ) :1; 
+            this . called := T;
+        }
+    }
+}
+
+contract Y {
+    deposit ( x ) {
+        x . transfer ( this ) :0
+    }
+}

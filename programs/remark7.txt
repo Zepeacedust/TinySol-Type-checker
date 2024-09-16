@@ -20,3 +20,4 @@ contract Y : (high, 1) {
         X.go ():this.balance
     }
 }
+
