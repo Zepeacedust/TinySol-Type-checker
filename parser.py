@@ -44,25 +44,28 @@ class Parser:
         self.lexer.expect(text="field")
         name = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect(":")
-        level = self.lexer.next_token()
-        # TODO: parse level
+        type_ass = self.type()
         self.lexer.expect(";")
-        return Typing.Field(name, level)
+        return Typing.Field(name, type_ass)
     
     def method_interface(self):
         self.lexer.expect("method")
         name = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect(":")
         self.lexer.expect("(")
-        variables = []
-        if self.lexer.lookahead().text != ")":
-            pass
+        variables = {}
+        while self.lexer.lookahead().text != ")":
+            var_type = self.type()
+            var_name = self.lexer.expect(type=TokenType.IDENTIFIER)
+            variables[var_name.text] = var_type
+            if self.lexer.lookahead().text == ",":
+                self.lexer.next_token()
         self.lexer.expect(")")
-        self.lexer.expect("->")
-        out_type = self.lexer.next_token()
+        self.lexer.expect(":")
+        cmd_type = self.lexer.expect(type=TokenType.CONSTANT).text
         self.lexer.expect(";")
 
-        return Typing.Method(name, variables, out_type)
+        return Typing.Method(name, variables, Typing.ProcType(variables, cmd_type))
 
     def contract(self):
         self.lexer.expect(text="contract")
@@ -71,7 +74,7 @@ class Parser:
         
         self.lexer.expect(":")
 
-        interface = self.lexer.expect(type=TokenType.IDENTIFIER)
+        type = self.type()
 
         self.lexer.expect(text="{")
 
@@ -87,7 +90,7 @@ class Parser:
         
         self.lexer.expect(text="}")
 
-        return AST.Contract(name.pos, name.text, interface.text, fields, methods)
+        return AST.Contract(name.pos, name.text, type, fields, methods)
 
     def field(self):
         self.lexer.expect(text="field")
@@ -276,4 +279,24 @@ class Parser:
             self.lexer.expect(text=")")
         
         return curr
+
+    def type(self):
+        self.lexer.expect("(")
+
+        base = self.lexer.expect(type=TokenType.IDENTIFIER)
+
+        self.lexer.expect(",")
+        level = self.lexer.next_token()
+        self.lexer.expect(")")
+
+        if level.text == "min":
+            level = Typing.SecurityLevel(0, min=True)
+        elif level.text == "max":
+            level = Typing.SecurityLevel(0, max=True)
+        else:
+            level = Typing.SecurityLevel(int(level.text))
+            
+
+
+        return Typing.Type(base.text, level)
         

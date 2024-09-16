@@ -1,0 +1,22 @@
+interface high { 
+    field balance : (int, 1);
+    method go : ():1;
+}
+
+interface low { 
+    field balance : (int, 0);
+    method go : ():0;
+}
+
+
+contract X: (low, 0) {
+    field balance := 0;
+    go () { skip }
+} 
+
+contract Y : (high, 1) {
+    field balance := 1;
+    go () { 
+        X.go ():this.balance
+    }
+}

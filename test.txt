@@ -1,18 +1,23 @@
 interface A {
-    field balance : 1;
-    method send: () -> 0;
-    method go : () -> 0;
+    field balance : (int, 0);
+    method send: ():0;
+    method go : ():0;
 }
-
 interface B {
-    field balance : 1;
-    method send: () -> 0;
-    method a: () -> 1;
-    method b: () -> 1;
+    field balance : (int, 1);
+    method send: ():1;
+    method go : ():1;
+}
+
+interface C {
+    field balance : (int, 1);
+    method send: ():0;
+    method a: ():0;
+    method b: ():0;
 }
 
 
-contract X : A { 
+contract X : (A, 0) { 
     go () { 
         if ( Y . balance == 0 ) 
         then { Z . a () :0 }
@@ -20,12 +25,12 @@ contract X : A {
     } 
 }
 
-contract Y : A {
+contract Y : (B,1) {
     field balance := 0 ;
 }
 
-contract Z : B {
-    a () { }
-    b () { }
+contract Z : (C,1) {
+    a () { skip }
+    b () { skip }
 }
 
