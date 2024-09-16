@@ -21,11 +21,11 @@ contract X : (A, 0) {
     go () { 
         if ( Y . balance == 0 ) 
         then { 
-            Z . a () :0;
+            Z . a ();
         }
         else {
-            Z . b () :0;
-        }
+            Z . b ();
+        };
     } 
 }
 

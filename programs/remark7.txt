@@ -11,13 +11,15 @@ interface low {
 
 contract X: (low, 0) {
     field balance := 0;
-    go () { skip }
+    go () { 
+        skip;
+    }
 } 
 
 contract Y : (high, 1) {
     field balance := 1;
     go () { 
-        X.go ():this.balance
+        X.go ():this.balance;
     }
 }
 

@@ -24,6 +24,8 @@ CONTROL = [
     "]",
     "{",
     "}",
+    "&",
+    "|",
 ]
 
 BOOL_CONSTANTS= [
@@ -129,12 +131,18 @@ class Lexer:
                 return Token(name, TokenType.KEYWORD, self.tell())
         
             if name in BOOL_CONSTANTS:
-                return Token(name, TokenType.CONSTANT)
+                return Token(name, TokenType.CONSTANT, self.tell())
 
             return Token(name, TokenType.IDENTIFIER, self.tell())
 
         if self.ch in CONTROL:
             first = self.next_character()
+            if first == "|" and self.ch == "|":
+                self.next_character()
+                return Token("||", TokenType.CONTROL, self.tell())
+            if first == "&" and self.ch == "&":
+                self.next_character()
+                return Token("&&", TokenType.CONTROL, self.tell())
             if first == "-" and self.ch == ">":
                 self.next_character()
                 return Token("->", TokenType.CONTROL, self.tell())

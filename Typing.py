@@ -40,7 +40,7 @@ class Field:
         self.type:VarType = type
     
     def type_check(self, type_env:"TypeEnvironment"):
-        self.type.obj = type_env.lookup(self.type.obj)
+        self.type.obj = type_env.get_interface(self.type.obj)
 
 class Method:
     def __init__(self, name, vars, type) -> None:
@@ -48,9 +48,9 @@ class Method:
         self.vars:dict[str:Type] = vars
         self.type:ProcType = type
     
-    def type_check(self, type_env):
+    def type_check(self, type_env:"TypeEnvironment"):
         for variable in self.type.variables:
-            self.type.variables[variable] = type_env.lookup(self.type.variables[variable])
+            self.type.variables[variable].obj = type_env.get_interface(self.type.variables[variable].obj)
         self.type.cmd_level = CmdType(SecurityLevel(int(self.type.cmd_level)))
 
 class Type:

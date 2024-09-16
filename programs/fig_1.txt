@@ -1,24 +1,37 @@
 interface low {
     field called : (bool, 0);
+    field balance : (int, 0);
+    method transfer : ((high, 0) z):0;
+    method send :():0;
 }
 
 interface high {
-
+    field called : (bool, 1);
+    field balance : (int, 1);
+    method deposit : ((low, 1) x):1;
+    method send :():1;
 }
 
 
-contract X { 
+contract X: (low, 0) { 
     field called := F;
+    field balance := 1;
     transfer ( z ) { 
-        if (called == F and this.balance >= 1) {
-            then z . deposit ( this ) :1; 
+        if (this.called == F && this.balance >= 1) 
+        then {
+            z . deposit ( this ) :1; 
             this . called := T;
-        }
+        } else {
+            skip;
+        };
     }
 }
 
-contract Y {
+contract Y: (high, 1){
+    field balance := 1;
     deposit ( x ) {
-        x . transfer ( this ) :0
+        x . transfer ( this ) :0;
     }
 }
+
+X->X.transfer(Y):100000;

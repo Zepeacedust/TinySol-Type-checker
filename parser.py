@@ -98,7 +98,7 @@ class Parser:
         self.lexer.expect(text=":=")
         value = self.lexer.expect(type=TokenType.CONSTANT)
         self.lexer.expect(text=";")
-        return AST.FieldDec(name.pos, name.text, int(value.text))
+        return AST.FieldDec(name.pos, name.text, value.text)
     
     def method_dec(self):
         name = self.lexer.expect(type=TokenType.IDENTIFIER)
@@ -118,11 +118,9 @@ class Parser:
 
     def statements(self):
         statements= []
-        statement = self.statement()
-        if statement != None:
-            statements.append(statement)
-        while self.lexer.lookahead().text == "}":
+        while self.lexer.lookahead().text != "}":
             statements.append(self.statement())
+            self.lexer.expect(";")
         
         return statements
 
@@ -135,7 +133,7 @@ class Parser:
                 if self.lexer.lookahead().text == ":=":
                     self.lexer.expect(text=":=")
                     value_expression = self.expression()
-                    return AST.AssignementStmt(first.pos, expression, value_expression)
+                    return AST.AssignmentStmt(first.pos, expression, value_expression)
             
             if isinstance(expression, AST.FieldExpr):
                 if self.lexer.lookahead().text == "(":
@@ -200,7 +198,7 @@ class Parser:
             if self.lexer.lookahead().text == ":=":
                 self.lexer.expect(text=":=")
                 value_expression = self.expression()
-                return AST.AssignementStmt(first.pos, expression, value_expression)
+                return AST.AssignmentStmt(first.pos, expression, value_expression)
         if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == "(":
             self.lexer.expect(text="(")
             parameters = []
@@ -319,7 +317,7 @@ class Parser:
                 break
         self.lexer.expect(")")
         self.lexer.expect(":")
-        cost = int(self.lexer.expect(type=TokenType.CONSTANT))
+        cost = int(self.lexer.expect(type=TokenType.CONSTANT).text)
         self.lexer.expect(";")
         
         return AST.Transaction(caller.pos, caller, callee, method, variables, cost)
