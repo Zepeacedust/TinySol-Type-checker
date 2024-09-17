@@ -304,9 +304,9 @@ class Parser:
     def transaction(self):
         caller = self.lexer.expect(type=TokenType.IDENTIFIER)
         self.lexer.expect("->")
-        callee = self.lexer.expect(type=TokenType.IDENTIFIER)
+        callee = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect(".")
-        method = self.lexer.expect(type=TokenType.IDENTIFIER)
+        method = self.lexer.expect(type=TokenType.IDENTIFIER).text
         self.lexer.expect("(")
         variables = []
         while self.lexer.lookahead().text != ")":
@@ -320,4 +320,4 @@ class Parser:
         cost = int(self.lexer.expect(type=TokenType.CONSTANT).text)
         self.lexer.expect(";")
         
-        return AST.Transaction(caller.pos, caller, callee, method, variables, cost)
+        return AST.Transaction(caller.pos, caller.text, callee, method, variables, cost)

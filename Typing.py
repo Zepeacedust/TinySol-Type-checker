@@ -24,6 +24,24 @@ class Interface:
         for field in self.fields:
             if field.name == name:
                 return field
+    
+    def __lt__(self, other:"Interface") -> bool:
+        
+        for field in other.fields:
+            corresponds = self.get_field(field.name)
+            if corresponds == None:
+                return False
+            if not corresponds < field:
+                return False
+        
+        for method in other.methods:
+            corresponds = self.get_field(method.name)
+            if corresponds == None:
+                return False
+            if not corresponds < method:
+                return False
+        
+         
 
 class Int(Interface):
     def __init__(self) -> None:
@@ -41,6 +59,9 @@ class Field:
     
     def type_check(self, type_env:"TypeEnvironment"):
         self.type.obj = type_env.get_interface(self.type.obj)
+    
+    def __lt__(self, other:"Field") -> bool:
+        return self.type < other.type
 
 class Method:
     def __init__(self, name, vars, type) -> None:
@@ -57,10 +78,22 @@ class Type:
     def __init__(self, obj, sec) -> None:
         self.obj:Interface = obj
         self.sec:SecurityLevel = sec
+    
+    def __repr__(self) -> str:
+        return f"({self.obj.name}, {self.sec})"
+
+    def __lt__(self, other:"Type") -> bool:
+        #TODO: figure out proper interface subtyping
+        return self.sec <= other.sec and self.obj == other.obj
 
 class VarType:
     def __init__(self, type) -> None:
         self.type:Type = type
+    
+    def __lt__(self, other:"VarType"):
+        if not other.type.sec < self.type.sec:
+            return False
+
 
 class CmdType:
     def __init__(self, level) -> None:
@@ -109,6 +142,15 @@ class SecurityLevel:
             return other
         return self
 
+    def __repr__(self) -> str:
+        if self.extreme == 0:
+            return str(self.level)
+
+        if self.extreme == 1:
+            return "max"
+        
+        if self.extreme == -1:
+            return "min"
 
 
 class TypeEnvironment:

@@ -41,3 +41,6 @@ class TypeChecker:
                 method.type_check(type_environment)
 
             type_environment.pop()
+
+        for transaction in ast.transactions:
+            transaction.type_check(type_environment)

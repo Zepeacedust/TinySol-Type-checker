@@ -399,13 +399,20 @@ class MethodCall(Node):
     def type_check(self, type_env:TypeEnvironment):
         self.name.type_check(type_env)
         interface = self.name.type_assignment.obj
-
+        
         #TODO: ensure variables are correctly typed
 
         method = interface.get_method(self.method)
         if method == None:
             raise TypeError(f"Trying to call nonexistant method at {self.pos}")
         self.type_assignment = method.type.cmd_level
+
+        # note that dict preserves order
+        var_types = list(method.type.variables.items()) 
+        for var in range(len(method.type.variables)):
+            self.vars[var].type_check(type_env)
+            if not self.vars[var].type_assignment < var_types[var][1]:
+                raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.vars[var].type_assignment} at {self.pos}")
 
         return self.type_assignment
     
@@ -429,7 +436,11 @@ class Transaction(Node):
         if method == None:
             raise Exception(f"{self.method} not included in interface {interface.name}")
 
-        for variable in method.vars:
-            print(variable)        
+        var_types = list(method.type.variables.items()) 
+        for var in range(len(method.type.variables)):
+            self.variables[var].type_check(type_env)
+            if not self.variables[var].type_assignment < var_types[var][1]:
+                raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.variables[var].type_assignment} at {self.pos}")
+
 
         return super().type_check(type_env)

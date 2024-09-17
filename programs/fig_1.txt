@@ -1,14 +1,14 @@
 interface low {
     field called : (bool, 0);
     field balance : (int, 0);
-    method transfer : ((high, 0) z):0;
+    method transfer : ((high, 1) z):0;
     method send :():0;
 }
 
 interface high {
     field called : (bool, 1);
     field balance : (int, 1);
-    method deposit : ((low, 1) x):1;
+    method deposit : ((low, 0) x):1;
     method send :():1;
 }
 
