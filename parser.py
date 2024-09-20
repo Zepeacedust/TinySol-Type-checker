@@ -194,11 +194,14 @@ class Parser:
 
         # expression or assigment are the only ones that can start on an identifer
         expression = self.expression()
-        if isinstance(expression, AST.VariableExpr) or isinstance(expression, AST.FieldExpr):
-            if self.lexer.lookahead().text == ":=":
-                self.lexer.expect(text=":=")
-                value_expression = self.expression()
-                return AST.AssignmentStmt(first.pos, expression, value_expression)
+        if isinstance(expression, AST.VariableExpr) and self.lexer.lookahead().text == ":=":
+            self.lexer.expect(text=":=")
+            value_expression = self.expression()
+            return AST.VarAssignmentStmt(first.pos, expression.name, value_expression)
+        if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == ":=":
+            self.lexer.expect(text=":=")
+            value_expression = self.expression()
+            return AST.FieldAssignmentStmt(first.pos, expression.name, expression.field, value_expression)
         if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == "(":
             self.lexer.expect(text="(")
             parameters = []
