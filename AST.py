@@ -11,6 +11,15 @@ class Node:
     def pprint(self,indent, highlightpos = (), highlighted = False):
         return NotImplemented
 
+class Expression(Node):
+    def __init__(self, pos) -> None:
+        super().__init__(pos)
+        self.type_assignment: Type
+
+class Statement(Node):
+    def __init__(self, pos) -> None:
+        super().__init__(pos)
+        self.type_assignment: CmdType
 
 class Blockchain(Node):
     def __init__(self, interfaces, contracts, transactions) -> None:
@@ -67,7 +76,7 @@ class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
         super().__init__(pos)
         self.name:str = name
-        self.value = value
+        self.value:Expression = value
     
     def pprint(self, indent):
         return "\t"*indent + f"field {self.name} := {self.value.pprint(indent+1)}"
@@ -92,7 +101,7 @@ class MethodDec(Node):
         super().__init__(pos)
         self.name:str = name
         self.parameters:list[str] = parameters
-        self.statements:list[Node] = statements
+        self.statements:list[Statement] = statements
     
     def pprint(self,indent, highlightpos = (), highlighted = False):
         string = "\t" * indent + f"{self.name}({', '.join(self.parameters)})" + " {\n" 
@@ -126,44 +135,48 @@ class MethodDec(Node):
             statement.type_check(type_env)
             cmd_level = cmd_level.join(statement.type_assignment)
 
-            if cmd_level.level > self.type_assignment.cmd_level.level:
-                raise TypeError(f"Method tries to access too high at {statement.pos}")
+            if cmd_level.level < self.type_assignment.cmd_level.level:
+                raise TypeError(f"Method of level {self.type_assignment.cmd_level.level} tries to access {cmd_level.level} at {statement.pos}")
 
         type_env.pop()
 
         return self.type_assignment
 
-class ThrowStmt(Node):
+class ThrowStmt(Statement):
     def __init__(self, pos) -> None:
         super().__init__(pos)
 
+    def type_check(self, type_env: TypeEnvironment):
+        self.type_assignment = CmdType(SecurityLevel(0, max=True))
+        return self.type_assignment
+        
     def pprint(self, indent, highlightpos=(), highlighted=False):
         return "\t" * indent + "throw"
 
-class AssignmentStmt(Node):
+class AssignmentStmt(Statement):
     def __init__(self, pos, name, expression) -> None:
         super().__init__(pos)
-        self.name:Node = name
-        self.expression:Node = expression
+        self.name:Expression = name
+        self.expression:Expression = expression
     
     def type_check(self, type_env: TypeEnvironment):
         self.expression.type_check(type_env)
         self.name.type_check(type_env)
 
+        if not self.expression.type_assignment < self.name.type_assignment:
+            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {self.name.type_assignment}at {self.pos}")
+        
         self.type_assignment = CmdType(self.name.type_assignment.sec)
 
-        if self.type_assignment.level < self.expression.type_assignment.sec:
-            raise TypeError(f"Reading from higher than writing to at {self.pos}")
-        
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         return "\t" * indent + f"{self.name} := {self.expression.pprint(indent+1)}" 
 
 
-class VariableExpr(Node):
+class VariableExpr(Expression):
     def __init__(self, pos, name) -> None:
         super().__init__(pos)
-        self.name = name
+        self.name:str = name
 
     def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = type_env.lookup(self.name)
@@ -174,10 +187,10 @@ class VariableExpr(Node):
 
 
 
-class FieldExpr(Node):
+class FieldExpr(Expression):
     def __init__(self, pos, name, field) -> None:
         super().__init__(pos)
-        self.name:Node = name
+        self.name:Expression = name
         self.field:str = field
     
     def pprint(self, indent, highlightpos=(), highlighted=False):
@@ -190,7 +203,7 @@ class FieldExpr(Node):
 
         return self.type_assignment
         
-class SkipStmt(Node):
+class SkipStmt(Statement):
     def __init__(self, pos) -> None:
         super().__init__(pos)
 
@@ -201,12 +214,12 @@ class SkipStmt(Node):
         self.type_assignment = CmdType(SecurityLevel(max=True))
         return self.type_assignment
         
-class IfStmt(Node):
+class IfStmt(Statement):
     def __init__(self, pos, cond, true_stmts, false_stmts) -> None:
         super().__init__(pos)
-        self.cond:Node = cond
-        self.true_stmts:list[Node] = true_stmts
-        self.false_stmts:list[Node] = false_stmts
+        self.cond:Expression = cond
+        self.true_stmts:list[Statement] = true_stmts
+        self.false_stmts:list[Statement] = false_stmts
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         string =  "\t"*indent + f"if ({self.cond.pprint()}) " + "{\n"
@@ -239,15 +252,15 @@ class IfStmt(Node):
              
 
 
-class WhileStmt(Node):
+class WhileStmt(Statement):
     def __init__(self, pos, cond, stmts) -> None:
         super().__init__(pos)
-        self.cond:Node = cond
-        self.stmts:list[Node] = stmts
+        self.cond:Expression = cond
+        self.stmts:list[Statement] = stmts
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         string =  "\t"*indent + f"while ({self.cond.pprint()}) " + "{\n"
-        for statement in self.true_stmts:
+        for statement in self.stmts:
             string += statement.pprint(indent+1) + ";\n"
         string += "\t" * indent + "};"
         return string
@@ -263,20 +276,21 @@ class WhileStmt(Node):
             cmd_lvl = cmd_lvl.join(statement.type_assignment)
 
         if self.cond.type_assignment.sec > cmd_lvl.level:
-            raise TypeError(f"Expression reads from higher than is written to at {self.pos}")
+            raise TypeError(f"Expression reads from {self.cond.type_assignment.sec} but writes to {cmd_lvl.level} at {self.pos}")
 
 
         self.type_assignment = cmd_lvl
             
 
 
-class BindStmt(Node):
+class BindStmt(Statement):
     def __init__(self, pos, name, type, expr, stmts) -> None:
         super().__init__(pos)
-        self.name = name
+        self.name:str = name
+        #todo: finish typing
         self.type = type
-        self.expr = expr
-        self.stmts = stmts
+        self.expr:Expression = expr
+        self.stmts:list[Statement] = stmts
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         string =  "\t"*indent + f"if ({self.cond.pprint()}) " + "{\n"
@@ -291,6 +305,7 @@ class BindStmt(Node):
         return string
 
     def type_check(self, type_env:TypeEnvironment):
+        #TODO: finish typing
         type_env.push({self.name:self.type})
         self.expr.type_check(type_env)
         cmd_lvl = CmdType(SecurityLevel(max=True))
@@ -303,41 +318,41 @@ class BindStmt(Node):
         
     
 
-class IntConstantExpr(Node):
+class IntConstantExpr(Expression):
     def __init__(self, pos, value) -> None:
         super().__init__(pos)
-        self.value = value
+        self.value:int = value
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         return set(self.value)
 
     def type_check(self, type_env:TypeEnvironment):
-        self.type_assignment = Type(Int(), SecurityLevel(min=True))
+        self.type_assignment = Type(type_env.get_interface("int"), SecurityLevel(0,min=True))
         return self.type_assignment
 
 
         
 
-class BoolConstantExpr(Node):
+class BoolConstantExpr(Expression):
     def __init__(self, pos, value) -> None:
         super().__init__(pos)
-        self.value = value
+        self.value:str = value
 
     def pprint(self, indent, highlightpos=(), highlighted=False):
         return "T" if self.value else "F"
 
     def type_check(self, type_env:TypeEnvironment):
-        self.type_assignment = Type(Bool(), SecurityLevel(min=True))
+        self.type_assignment = Type(type_env.get_interface("bool"), SecurityLevel(0,min=True))
         return self.type_assignment
 
 
 
-class BinaryOp(Node):
+class BinaryOp(Expression):
     def __init__(self, pos, op, lhs, rhs) -> None:
         super().__init__(pos)
-        self.op = op
-        self.lhs=lhs
-        self.rhs = rhs
+        self.op:str = op
+        self.lhs:Expression = lhs
+        self.rhs:Expression = rhs
     
     def type_check(self, type_env:TypeEnvironment):
         self.lhs.type_check(type_env)
@@ -375,11 +390,11 @@ class BinaryOp(Node):
         return self.type_assignment
 
 
-class UnaryOp(Node):
+class UnaryOp(Expression):
     def __init__(self, pos, op, operand) -> None:
         super().__init__(pos)
-        self.op = op
-        self.operand = operand
+        self.op:str = op
+        self.operand:Expression = operand
     
     def pprint(self, indent, highlightpos=(), highlighted=False):
         return self.op + "(" + self.operand.pprint(indent+1) + ")"
@@ -388,23 +403,24 @@ class UnaryOp(Node):
         self.type_assignment = self.operand.type_check(type_env)
         return self.type_assignment
 
-class MethodCall(Node):
+class MethodCall(Statement):
     def __init__(self, pos, name, method, vars, cost) -> None:
         super().__init__(pos)
-        self.name:Node = name
-        self.method = method
-        self.vars = vars
-        self.cost = cost
+        self.name:Expression = name
+        self.method:str = method
+        self.vars:list[Expression] = vars
+        self.cost:Expression = cost
 
     def type_check(self, type_env:TypeEnvironment):
         self.name.type_check(type_env)
+        self.cost.type_check(type_env)
         interface = self.name.type_assignment.obj
         
-        #TODO: ensure variables are correctly typed
-
         method = interface.get_method(self.method)
+
         if method == None:
             raise TypeError(f"Trying to call nonexistant method at {self.pos}")
+        
         self.type_assignment = method.type.cmd_level
 
         # note that dict preserves order
@@ -413,6 +429,12 @@ class MethodCall(Node):
             self.vars[var].type_check(type_env)
             if not self.vars[var].type_assignment < var_types[var][1]:
                 raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.vars[var].type_assignment} at {self.pos}")
+
+        balance_level = interface.get_field("balance").type.sec
+
+        if balance_level < self.type_assignment.level:
+            raise TypeError(f"Implicit write to balance writing to {balance_level} with method level {self.type_assignment.level} at {self.pos}")
+
 
         return self.type_assignment
     
