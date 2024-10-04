@@ -144,7 +144,11 @@ class Parser:
                 return self.method_call()
             case "set":
                 return self.assignment_stmt()
-
+            case "print":
+                self.lexer.expect("print")
+                expr = self.expression()
+                return AST.PrintStmt(expr.pos, expr)
+            
     def assignment_stmt(self):
         first = self.lexer.expect("set")
         var = self.lexer.expect(type=TokenType.IDENTIFIER)

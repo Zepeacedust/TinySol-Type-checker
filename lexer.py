@@ -47,6 +47,7 @@ KEYWORDS = [
     "do",
     "set",
     "call",
+    "print"
 ]
 
 

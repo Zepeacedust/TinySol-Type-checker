@@ -84,7 +84,7 @@ class Type:
 
     def __lt__(self, other:"Type") -> bool:
         #TODO: figure out proper interface subtyping
-        return self.sec <= other.sec and self.obj == other.obj
+        return self.sec <= other.sec and self.obj.name == other.obj.name
 
 class VarType:
     def __init__(self, type) -> None:

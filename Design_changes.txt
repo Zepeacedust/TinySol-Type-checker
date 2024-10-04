@@ -10,3 +10,6 @@ Stm -> set L:= e
 Stm -> call e_1.f(e~):e_2,
 
 this means that every statement starts with a specific keyword, vastly reducing ambiguity.
+
+## Added a print statement
+added print EXPRESSION, it is not typed since it is only intended for debugging

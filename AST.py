@@ -226,14 +226,16 @@ class FieldAssignmentStmt(Statement):
         field = self.contract.type_assignment.obj.get_field(self.field_name)
 
         if not self.expression.type_assignment < field.type:
-            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {field.type}at {self.pos}")
+            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {field.type} at {self.pos}")
         
-        self.type_assignment = CmdType(self.name.type_assignment.sec)
-        return super().type_check(type_env)
+        self.type_assignment = CmdType(field.type.sec)
+        return self.type_assignment
     
     def evaluate(self, env: Environment):
         contract = self.contract.evaluate(env)
-        contract.get_field(self.field_name).value = self.expression.evaluate(env)
+        for field in contract.fields:
+            if field.name == self.field_name:
+                field.value = self.expression.evaluate(env)
 
 class VariableExpr(Expression):
     def __init__(self, pos, name) -> None:
@@ -270,7 +272,10 @@ class FieldExpr(Expression):
     
     def evaluate(self, env: Environment):
         contract = self.name.evaluate(env)
-        return contract.get_field(self.field).value
+        for field in contract.fields:
+            if field.name == self.field:
+                return field.value
+                
         
 class SkipStmt(Statement):
     def __init__(self, pos) -> None:
@@ -397,9 +402,11 @@ class BindStmt(Statement):
         if self.expr.type_assignment.sec > cmd_lvl.level:
             raise TypeError(f"Expression reads from higher than is written to at {self.pos}")
     
-    # def evaluate(self, env: Environment):
-    #     env.push({self.name:})
-    #     return super().evaluate(env)
+    def evaluate(self, env: Environment):
+        env.push({self.name:Reference(self.expr.evaluate(env))})
+        for statement in self.stmts:
+            statement.evaluate(env)
+        env.pop()
     
 
 class IntConstantExpr(Expression):
@@ -413,6 +420,9 @@ class IntConstantExpr(Expression):
     def type_check(self, type_env:TypeEnvironment):
         self.type_assignment = Type(type_env.get_interface("int"), SecurityLevel(0,min=True))
         return self.type_assignment
+    
+    def evaluate(self, env: Environment):
+        return self.value
 
 
         
@@ -429,6 +439,9 @@ class BoolConstantExpr(Expression):
         self.type_assignment = Type(type_env.get_interface("bool"), SecurityLevel(0,min=True))
         return self.type_assignment
 
+    def evaluate(self, env: Environment):
+        return self.value
+
 
 
 class BinaryOp(Expression):
@@ -444,10 +457,9 @@ class BinaryOp(Expression):
 
         #operators on ints that give ints
         if self.op in ["+", "-", "*"]:
-            assert isinstance(self.lhs.type_assignment, Int) 
-            assert isinstance(self.rhs.type_assignment, Int)
+            assert isinstance(self.lhs.type_assignment.obj, Int) 
+            assert isinstance(self.rhs.type_assignment.obj, Int)
             self.type_assignment = Type(Int(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
-            self.type_assignment = Type(Int(), self.lhs.type_assignment.join(self.rhs.type_assignment))
         #operators on ints that give bools
         elif self.op in ["<",">",">=","<="]:
 
@@ -472,6 +484,29 @@ class BinaryOp(Expression):
 
 
         return self.type_assignment
+    def evaluate(self, env: Environment):
+        lhs = self.lhs.evaluate(env)
+        rhs = self.rhs.evaluate(env)
+        if self.op == "+":
+            return lhs + rhs
+        if self.op == "-":
+            return lhs - rhs
+        if self.op == "*":
+            return lhs * rhs
+        if self.op == "<":
+            return lhs < rhs
+        if self.op == ">":
+            return lhs + rhs
+        if self.op == ">=":
+            return lhs >= rhs
+        if self.op == "<=":
+            return lhs <= rhs
+        if self.op == "==":
+            return lhs == rhs
+        if self.op == "&&":
+            return lhs and rhs
+        if self.op == "||":
+            return lhs or rhs
 
 
 class UnaryOp(Expression):
@@ -487,6 +522,9 @@ class UnaryOp(Expression):
         self.type_assignment = self.operand.type_check(type_env)
         return self.type_assignment
 
+    def evaluate(self, env: Environment):
+        return - self.operand.evaluate(env)
+    
 class MethodCall(Statement):
     def __init__(self, pos, name, method, vars, cost) -> None:
         super().__init__(pos)
@@ -522,6 +560,36 @@ class MethodCall(Statement):
 
         return self.type_assignment
     
+    def evaluate(self, env: Environment):
+        callee:Contract = self.name.evaluate(env)
+        for method in callee.methods:
+            if method.name == self.method:
+                break
+        
+        method_env = {
+            "value": Reference(self.cost.evaluate(env)),
+            "caller": env.lookup("this"),
+            "this": Reference(callee)
+        }
+
+        for field in env.lookup("this").value.fields:
+            if field.name == "balance":
+                field.value -= self.cost
+
+        for field in callee.fields:
+            if field.name == "balance":
+                field.value += self.cost
+
+        for ind in range(len(self.vars)):
+            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+
+        env.push(method_env)
+
+        for statement in method.statements:
+            statement.evaluate(env)
+
+        env.pop()
+    
 
 class Transaction(Node):
     def __init__(self, pos, caller, callee, method, variables, cost) -> None:
@@ -550,3 +618,45 @@ class Transaction(Node):
 
 
         return super().type_check(type_env)
+    
+    def evaluate(self, env: Environment):
+        callee:Contract = env.lookup(self.callee).value
+        caller:Contract = env.lookup(self.caller).value
+        for method in callee.methods:
+            if method.name == self.method:
+                break
+        
+        method_env = {
+            "value": Reference(self.cost),
+            "caller": Reference(caller),
+            "this": Reference(callee)
+        }
+
+        for field in caller.fields:
+            if field.name == "balance":
+                field.value -= self.cost
+
+        for field in callee.fields:
+            if field.name == "balance":
+                field.value += self.cost
+        for ind in range(len(self.variables)):
+            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+
+        env.push(method_env)
+
+        for statement in method.statements:
+            statement.evaluate(env)
+
+        env.pop()
+    
+class PrintStmt(Statement):
+    def __init__(self, pos, expression) -> None:
+        super().__init__(pos)
+        self.expression:Expression = expression
+    
+    def type_check(self, type_env: TypeEnvironment):
+        self.type_assignment = CmdType(SecurityLevel(max=True))
+        return self.type_assignment
+
+    def evaluate(self, env: Environment):
+        print(self.expression.evaluate(env))

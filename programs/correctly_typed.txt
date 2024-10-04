@@ -1,0 +1,22 @@
+interface i {
+    field called : (bool, 0);
+    field balance : (int, 0);
+    method main : ():0;
+    method send :():0;
+}
+
+contract cont: (i, 0) { 
+    field called := F;
+    field balance := 10;
+    main (  ) {
+        while (this.balance > 0 ) 
+        do {
+            print this.balance;
+            set this.balance := this.balance - 1;
+        };
+    }
+}
+
+
+
+cont->cont.main():100000;

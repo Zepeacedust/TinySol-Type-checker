@@ -1,6 +1,12 @@
 from TypeChecker import TypeChecker
-test = TypeChecker("programs/fig_1.txt")
+from Environment import Environment
+
+test = TypeChecker("programs/correctly_typed.txt")
 
 test.type_check()
+
+
+
+test.ast.evaluate(Environment({}))
 
 print(test)

@@ -5,11 +5,11 @@ class Environment:
     def push(self,values):
         self.values.append(values)
 
-    def pop(self, values):
+    def pop(self):
         self.values.pop()
 
     def lookup(self, name) -> "Reference":
-        for i in range(len(self.values),0,-1):
+        for i in range(len(self.values)-1,-1,-1):
             if name in self.values[i]:
                 return self.values[i][name]
     
@@ -20,4 +20,4 @@ class Environment:
 
 class Reference:
     def __init__(self, value) -> None:
-        value = value
+        self.value = value
