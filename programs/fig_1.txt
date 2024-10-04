@@ -19,8 +19,8 @@ contract X: (low, 0) {
     transfer ( z ) { 
         if (this.called == F && this.balance >= 1) 
         then {
-            z . deposit ( this ) :1; 
-            this . called := T;
+            call z . deposit ( this ) :1; 
+            set this . called := T;
         } else {
             skip;
         };
@@ -30,7 +30,7 @@ contract X: (low, 0) {
 contract Y: (high, 1){
     field balance := 1;
     deposit ( x ) {
-        x . transfer ( this ) :0;
+        call x . transfer ( this ) :0;
     }
 }
 

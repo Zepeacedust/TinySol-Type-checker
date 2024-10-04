@@ -214,7 +214,7 @@ class VarAssignmentStmt(Statement):
 
 class FieldAssignmentStmt(Statement):
     def __init__(self, pos, contract, field_name, expression) -> None:
-        super.__init__(self, pos)
+        super().__init__(pos)
         self.contract:Expression = contract
         self.field_name = field_name
         self.expression:Expression = expression

@@ -126,47 +126,76 @@ class Parser:
 
     def statement(self):
         first = self.lexer.lookahead()
-        # expression or assigment are the only ones that can start on an identifer
-        if first.type == TokenType.IDENTIFIER:
-            expression = self.expression()
-            if isinstance(expression, AST.VariableExpr) or isinstance(expression, AST.FieldExpr):
-                if self.lexer.lookahead().text == ":=":
-                    self.lexer.expect(text=":=")
-                    value_expression = self.expression()
-                    return AST.AssignmentStmt(first.pos, expression, value_expression)
-            
-            if isinstance(expression, AST.FieldExpr):
-                if self.lexer.lookahead().text == "(":
-                    vars = []
-                    self.lexer.expect(text="(")
 
-                    if self.lexer.lookahead().text != ")":
-                        vars.append(self.expression())
-                    
-                    while self.lexer.lookahead().text == ",":
-                        self.lexer.expect(",")
-                        vars.append(self.expression())
-                    self.lexer.expect(text=")")
-                    
-                    cost = AST.IntConstantExpr(first.pos, 0)
+        match first.text:
+            case "skip":
+                self.lexer.expect(text="skip")
+                return AST.SkipStmt(first.pos)
+            case "throw":
+                self.lexer.expect(text="throw")
+                return AST.ThrowStmt(first.pos)
+            case "var":
+                return self.bind_stmt()
+            case "if":
+                return self.if_stmt()
+            case "while":
+                return self.while_stmt()
+            case "call":
+                return self.method_call()
+            case "set":
+                return self.assignment_stmt()
 
-                    if self.lexer.lookahead().text == ":":
-                        self.lexer.expect(text=":")
-                        cost = self.expression()
-                    
-                    
-                    return AST.MethodCall(first.pos, expression.name, expression.field, vars, cost)
-            return expression
+    def assignment_stmt(self):
+        first = self.lexer.expect("set")
+        var = self.lexer.expect(type=TokenType.IDENTIFIER)
+        if self.lexer.lookahead().text == ":=":
+            self.lexer.expect(":=")
+            value = self.expression()
+            return AST.VarAssignmentStmt(first.pos, var.text, value)
         
-        if first.text == "skip":
-            self.lexer.expect(text="skip")
-            return AST.SkipStmt(first.pos)
+        var = AST.VariableExpr(var.pos, var.text) 
+
+        while self.lexer.lookahead().text == ".":
+            self.lexer.expect(".")
+            field = self.lexer.expect(type=TokenType.IDENTIFIER).text
+            var = AST.FieldExpr(first.pos, var, field)
         
-        if first.text == "throw":
-            self.lexer.expect(text="throw")
-            return AST.ThrowStmt(first.pos)
         
-        if first.text == "var":
+        self.lexer.expect(":=") 
+        
+        value = self.expression()
+        return AST.FieldAssignmentStmt(first.pos, var.name, var.field, value)
+
+
+    def method_call(self):
+        first = self.lexer.expect("call")
+
+        field = self.expression()
+
+        if not isinstance(field, AST.FieldExpr):
+            raise SyntaxError(f"Trying to call non-method object at {first.pos}")
+
+        vars = []
+
+        self.lexer.expect(text="(")
+
+        if self.lexer.lookahead().text != ")":
+            vars.append(self.expression())
+        
+        while self.lexer.lookahead().text == ",":
+            self.lexer.expect(",")
+            vars.append(self.expression())
+        self.lexer.expect(text=")")
+        
+        cost = AST.IntConstantExpr(first.pos, 0)
+
+        if self.lexer.lookahead().text == ":":
+            self.lexer.expect(text=":")
+            cost = self.expression()
+        
+        return AST.MethodCall(first.pos, field.name, field.field, vars, cost)
+
+    def bind_stmt(self):
             self.lexer.expect(text="var")
             name = self.lexer.expect(type=TokenType.IDENTIFIER)
             self.lexer.expect(":")
@@ -176,44 +205,17 @@ class Parser:
             expr = self.expression()
             self.lexer.expect(text="in")
             statements = self.statement()
-            
             return AST.BindStmt(name.pos, name.text,level, expr, statements)
-        
-        if first.text == "if":
-            return self.if_stmt()
-        
-        if first.text == "while":
-            self.lexer.expect(text="while")
+
+    def while_stmt(self):
+            first = self.lexer.expect(text="while")
             cond = self.expression()
             self.lexer.expect(text="do")
             self.lexer.expect(text="{")
             stmts = self.statements()
             self.lexer.expect(text="}")
             return AST.WhileStmt(first.pos, cond, stmts)
-        
 
-        # expression or assigment are the only ones that can start on an identifer
-        expression = self.expression()
-        if isinstance(expression, AST.VariableExpr) and self.lexer.lookahead().text == ":=":
-            self.lexer.expect(text=":=")
-            value_expression = self.expression()
-            return AST.VarAssignmentStmt(first.pos, expression.name, value_expression)
-        if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == ":=":
-            self.lexer.expect(text=":=")
-            value_expression = self.expression()
-            return AST.FieldAssignmentStmt(first.pos, expression.name, expression.field, value_expression)
-        if isinstance(expression, AST.FieldExpr) and self.lexer.lookahead().text == "(":
-            self.lexer.expect(text="(")
-            parameters = []
-            if self.lexer.lookahead().text != ")":
-                parameters.append(self.lexer.expect(type=TokenType.IDENTIFIER).text)
-                while self.lexer.lookahead().text == ",":
-                    parameters.append(expression)
-            self.lexer.expect(text=")")
-            self.lexer.expect(text=":")
-            cost = self.expression()
-            return AST.MethodCall(expression.pos, expression.name, expression.field, parameters, cost)
-        
     def if_stmt(self):
         first = self.lexer.expect(text="if")
         cond = self.expression()

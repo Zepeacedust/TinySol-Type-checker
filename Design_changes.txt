@@ -1,0 +1,12 @@
+# Short description of design changes
+
+## changes in types
+types are represented as a tuple of (data_type, security level)
+
+## changes in language
+Add some changes in statement rules.
+
+Stm -> set L:= e
+Stm -> call e_1.f(e~):e_2,
+
+this means that every statement starts with a specific keyword, vastly reducing ambiguity.

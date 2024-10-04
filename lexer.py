@@ -45,6 +45,8 @@ KEYWORDS = [
     "else",
     "while",
     "do",
+    "set",
+    "call",
 ]
 
 
