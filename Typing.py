@@ -51,7 +51,10 @@ class Bool(Interface):
     def __init__(self) -> None:
         super().__init__("bool", [], [])
 
-
+class Array(Interface):
+    def __init__(self, contained):
+        super().__init__(f"array<{contained.name}>", [], [])
+        
 class Field:
     def __init__(self, name, type) -> None:
         self.name:str = name

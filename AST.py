@@ -660,3 +660,24 @@ class PrintStmt(Statement):
 
     def evaluate(self, env: Environment):
         print(self.expression.evaluate(env))
+
+
+class UnsafeStmt(Statement):
+    def __init__(self, pos, stmt):
+        self.stmt = stmt
+        super().__init__(pos)
+    def evaluate(self, env):
+        return self.stmt.evaluate(env)
+    
+    def type_check(self, type_env):
+        self.type_assignment = CmdType(SecurityLevel(max=True))
+        return self.type_assignment
+
+class ArrayConstant(Expression):
+    def __init__(self, pos, indices):
+        super().__init__(pos)
+        self.indices = indices
+
+class ArrayAccess(Expression):
+    def __init__(self, pos, array, index):
+        super().__init__(pos)

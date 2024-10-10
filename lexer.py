@@ -26,6 +26,9 @@ CONTROL = [
     "}",
     "&",
     "|",
+    "[",
+    "]",
+    "\""
 ]
 
 BOOL_CONSTANTS= [
@@ -47,7 +50,8 @@ KEYWORDS = [
     "do",
     "set",
     "call",
-    "print"
+    "print",
+    "unsafe"
 ]
 
 
@@ -125,6 +129,16 @@ class Lexer:
             while self.ch.isdigit():
                 num += self.next_character()
             return Token(num, TokenType.CONSTANT, self.tell())
+
+
+        # TODO: handle escaping characters
+        if self.ch == "\"":
+            self.next_character()
+            word = ""
+            while self.ch != "\"":
+                word += self.next_character()
+            self.next_character()
+            return Token(word, TokenType.KEYWORD, self.tell()) 
 
         if self.ch.isalpha() or self.ch == "_":
             name = ""

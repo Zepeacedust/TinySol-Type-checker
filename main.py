@@ -1,7 +1,11 @@
 from TypeChecker import TypeChecker
 from Environment import Environment
 
-test = TypeChecker("programs/correctly_typed.txt")
+import sys
+
+assert len(sys.argv) == 2, "Usage is python main.py [FILENAME]"
+
+test = TypeChecker(sys.argv[1])
 
 test.type_check()
 

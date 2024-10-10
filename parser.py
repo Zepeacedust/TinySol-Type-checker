@@ -148,6 +148,10 @@ class Parser:
                 self.lexer.expect("print")
                 expr = self.expression()
                 return AST.PrintStmt(expr.pos, expr)
+            case "unsafe":
+                self.lexer.expect("unsafe")
+                stmt = self.statement
+                return AST.UnsafeStmt(stmt.pos, stmt)
             
     def assignment_stmt(self):
         first = self.lexer.expect("set")
@@ -288,6 +292,15 @@ class Parser:
 
             self.lexer.expect(text=")")
         
+        if first.text == "[":
+            indicies = []
+            indicies.append(self.expression())
+            while self.lexer.lookahead().text == ",":
+                self.lexer.next_token()
+                indicies.append(self.expression())
+            self.lexer.expect("]")
+        
+
         return curr
 
     def type(self):

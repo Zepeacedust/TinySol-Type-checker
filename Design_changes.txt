@@ -13,3 +13,19 @@ this means that every statement starts with a specific keyword, vastly reducing 
 
 ## Added a print statement
 added print EXPRESSION, it is not typed since it is only intended for debugging
+
+## Added lists
+unary -> [Parameter]
+Parameter -> EXPRESSION
+Parameter -> Parameter, EXPRESSION
+
+all parameters must be able to be subtyped together.
+
+unary -> unary [ EXPRESSION ]
+expression must be integer
+
+## Added unsafe statements
+
+stmt -> unsafe stmt
+
+just don't type check it, will still execute.
