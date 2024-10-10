@@ -21,8 +21,8 @@ But B is a subtype of A only if B.a() is a subtype of A.a().
 
 Which is a subtype only if A is a subtype of B.
 
-# Proposed fixes
-## Making inheritance explicit
+## Proposed fixes
+### Making inheritance explicit
 
 
 ```
@@ -30,7 +30,10 @@ Interface A extends B {
 
 }
 ```
-## No inheritance
+### No inheritance
 Just no interface inheritance.
 This feels bad, but for now will be the option I will choose.
 
+# l and r-values
+
+I should probably slightly reword the environment to implement references / l-values

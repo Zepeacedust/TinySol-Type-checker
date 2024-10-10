@@ -29,3 +29,9 @@ expression must be integer
 stmt -> unsafe stmt
 
 just don't type check it, will still execute.
+
+## explicit inheritance
+change interface definition to be 
+interface NAME extends NAME {
+
+}

@@ -676,8 +676,38 @@ class UnsafeStmt(Statement):
 class ArrayConstant(Expression):
     def __init__(self, pos, indices):
         super().__init__(pos)
-        self.indices = indices
+        self.indices:list[Expression] = indices
+    
+    def type_check(self, type_env: TypeEnvironment):
+        for index in self.indices:
+            index.type_check(type_env)
+        
+    def evaluate(self, env: Environment):
+        out = []
+        for index in self.indices:
+            out.append(Reference(index.evaluate(env)))
+        return out
 
 class ArrayAccess(Expression):
     def __init__(self, pos, array, index):
         super().__init__(pos)
+        self.array:Expression = array
+        self.index:Expression = index
+    
+    def type_check(self, type_env: TypeEnvironment):
+        self.array.type_check(type_env)
+        self.index.type_check(type_env)
+        assert isinstance(self.index.type_assignment, Int), f"Index must be int, not {self.index.type_assignment.obj} at {self.pos}"
+        self.type_assignment = self.array.type_assignment
+        self.type_assignment.sec = self.type_assignment.sec.join(self.index.type_assignment.sec)
+        return self.type_assignment
+
+    def evaluate(self, env: Environment):
+        array = self.array.evaluate(env)
+        index = self.index.evaluate()
+        return array[index]
+
+class ArrayAssignemnt(Statement):
+    def __init__(self, pos) -> None:
+        super().__init__(pos)
+        

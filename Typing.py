@@ -53,7 +53,9 @@ class Bool(Interface):
 
 class Array(Interface):
     def __init__(self, contained):
-        super().__init__(f"array<{contained.name}>", [], [])
+        super().__init__(f"array<{contained.name}>", [
+        ], [
+        ])
         
 class Field:
     def __init__(self, name, type) -> None:
