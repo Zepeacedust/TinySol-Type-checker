@@ -1,6 +1,18 @@
 from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool, TypeEnvironment, Interface
 
-from Environment import Environment, Reference
+from Environment import Environment, Reference, Value
+
+# import decorator
+
+# @decorator.decorator
+# def error_decorator(f, args, *kwargs):
+#     def wrapper(args, *kwargs):
+#         try: 
+#             f(args, *kwargs)
+#         except TypeError as e:
+#             print(e)
+#             print("cought_e, passing it along")
+#             raise e
 
 class Node:
     def __init__(self, pos) -> None:
@@ -15,6 +27,10 @@ class Node:
     
     def evaluate(self, env:Environment):
         pass
+    
+    def type_error(self, description):
+        nice_trace = self.pprint()
+        raise TypeError(description + "\n" + nice_trace)
 
 class Expression(Node):
     def __init__(self, pos) -> None:
@@ -173,69 +189,22 @@ class ThrowStmt(Statement):
         raise Exception(f"Throws error at {self.pos}")
 
 class AssignmentStmt(Statement):
-    def __init__(self, pos, name, expression) -> None:
+    def __init__(self, pos, lhs, rhs) -> None:
         super().__init__(pos)
-        self.name:Expression = name
-        self.expression:Expression = expression
+        self.lhs:Expression = lhs
+        self.rhs:Expression = rhs
     
     def type_check(self, type_env: TypeEnvironment):
-        self.expression.type_check(type_env)
-        self.name.type_check(type_env)
-
-        if not self.expression.type_assignment < self.name.type_assignment:
-            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {self.name.type_assignment}at {self.pos}")
+        self.rhs.type_check(type_env)
+        self.lhs.type_check(type_env)
+        if not self.rhs.type_assignment < self.lhs.type_assignment:
+            raise TypeError(f"Assigning type {self.rhs.type_assignment} to variable of type {self.lhs} at {self.pos}")
         
-        self.type_assignment = CmdType(self.name.type_assignment.sec)
+        self.type_assignment = CmdType(self.lhs.type_assignment.sec)
 
     def evaluate(self, env: Environment):
-        ref = self.name.evaluate(env)
-        ref.value = self.expression.evaluate(env)
-        return super().evaluate(env)
-
-    def pprint(self, indent, highlightpos=(), highlighted=False):
-        return "\t" * indent + f"{self.name} := {self.expression.pprint(indent+1)}" 
-
-class VarAssignmentStmt(Statement):
-    def __init__(self, pos, var_name, expression) -> None:
-        super().__init__(pos)
-        self.var_name = var_name
-        self.expression:Expression = expression
-    
-    def type_check(self, type_env: TypeEnvironment):
-        self.expression.type_check(type_env)
-
-        if not self.expression.type_assignment < type_env.lookup(self.var_name):
-            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {type_env.lookup(self.var_name)}at {self.pos}")
-        
-        self.type_assignment = CmdType(type_env.lookup(self.var_name).sec)
-
-    def evaluate(self, env: Environment):
-        env.lookup(self.var_name).value = self.expression.evaluate(env)
-
-class FieldAssignmentStmt(Statement):
-    def __init__(self, pos, contract, field_name, expression) -> None:
-        super().__init__(pos)
-        self.contract:Expression = contract
-        self.field_name = field_name
-        self.expression:Expression = expression
-    
-    def type_check(self, type_env: TypeEnvironment):
-        self.expression.type_check(type_env)
-        self.contract.type_check(type_env)
-
-        field = self.contract.type_assignment.obj.get_field(self.field_name)
-
-        if not self.expression.type_assignment < field.type:
-            raise TypeError(f"Assigning type {self.expression.type_assignment} to variable of type {field.type} at {self.pos}")
-        
-        self.type_assignment = CmdType(field.type.sec)
-        return self.type_assignment
-    
-    def evaluate(self, env: Environment):
-        contract = self.contract.evaluate(env)
-        for field in contract.fields:
-            if field.name == self.field_name:
-                field.value = self.expression.evaluate(env)
+        l_value = self.lhs.evaluate(env)
+        l_value.value = self.rhs.evaluate(env).value
 
 class VariableExpr(Expression):
     def __init__(self, pos, name) -> None:
@@ -250,7 +219,7 @@ class VariableExpr(Expression):
         return self.name
     
     def evaluate(self, env: Environment):
-        return env.lookup(self.name).value
+        return env.lookup(self.name)
 
 
 
@@ -271,10 +240,10 @@ class FieldExpr(Expression):
         return self.type_assignment
     
     def evaluate(self, env: Environment):
-        contract = self.name.evaluate(env)
+        contract = self.name.evaluate(env).value
         for field in contract.fields:
             if field.name == self.field:
-                return field.value
+                return field
                 
         
 class SkipStmt(Statement):
@@ -325,7 +294,7 @@ class IfStmt(Statement):
         self.type_assignment=cmd_lvl
     
     def evaluate(self, env: Environment):
-        if self.cond.evaluate(env):
+        if self.cond.evaluate(env).value:
             for stmt in self.true_stmts:
                 stmt.evaluate(env)
         else:
@@ -364,7 +333,7 @@ class WhileStmt(Statement):
         self.type_assignment = cmd_lvl
     
     def evaluate(self, env: Environment):
-        while self.cond.evaluate(env):
+        while self.cond.evaluate(env).value:
             for stmt in self.stmts:
                 stmt.evaluate(env)
 
@@ -403,7 +372,7 @@ class BindStmt(Statement):
             raise TypeError(f"Expression reads from higher than is written to at {self.pos}")
     
     def evaluate(self, env: Environment):
-        env.push({self.name:Reference(self.expr.evaluate(env))})
+        env.push({self.name:Reference(self.expr.evaluate(env).value)})
         for statement in self.stmts:
             statement.evaluate(env)
         env.pop()
@@ -422,8 +391,7 @@ class IntConstantExpr(Expression):
         return self.type_assignment
     
     def evaluate(self, env: Environment):
-        return self.value
-
+        return Value(self.value)
 
         
 
@@ -440,7 +408,7 @@ class BoolConstantExpr(Expression):
         return self.type_assignment
 
     def evaluate(self, env: Environment):
-        return self.value
+        return Value(self.value)
 
 
 
@@ -485,28 +453,28 @@ class BinaryOp(Expression):
 
         return self.type_assignment
     def evaluate(self, env: Environment):
-        lhs = self.lhs.evaluate(env)
-        rhs = self.rhs.evaluate(env)
+        lhs = self.lhs.evaluate(env).value
+        rhs = self.rhs.evaluate(env).value
         if self.op == "+":
-            return lhs + rhs
+            return Value(lhs + rhs)
         if self.op == "-":
-            return lhs - rhs
+            return Value(lhs - rhs)
         if self.op == "*":
-            return lhs * rhs
+            return Value(lhs * rhs)
         if self.op == "<":
-            return lhs < rhs
+            return Value(lhs < rhs)
         if self.op == ">":
-            return lhs + rhs
+            return Value(lhs + rhs)
         if self.op == ">=":
-            return lhs >= rhs
+            return Value(lhs >= rhs)
         if self.op == "<=":
-            return lhs <= rhs
+            return Value(lhs <= rhs)
         if self.op == "==":
-            return lhs == rhs
+            return Value(lhs == rhs)
         if self.op == "&&":
-            return lhs and rhs
+            return Value(lhs and rhs)
         if self.op == "||":
-            return lhs or rhs
+            return Value(lhs or rhs)
 
 
 class UnaryOp(Expression):
@@ -639,8 +607,9 @@ class Transaction(Node):
         for field in callee.fields:
             if field.name == "balance":
                 field.value += self.cost
+        # While everything is passed by value, the environment is made of references.
         for ind in range(len(self.variables)):
-            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+            method_env[method.parameters[ind]] = Reference(self.vars[ind].evaluate().value)
 
         env.push(method_env)
 
@@ -659,7 +628,7 @@ class PrintStmt(Statement):
         return self.type_assignment
 
     def evaluate(self, env: Environment):
-        print(self.expression.evaluate(env))
+        print(self.expression.evaluate(env).value)
 
 
 class UnsafeStmt(Statement):
@@ -706,8 +675,3 @@ class ArrayAccess(Expression):
         array = self.array.evaluate(env)
         index = self.index.evaluate()
         return array[index]
-
-class ArrayAssignemnt(Statement):
-    def __init__(self, pos) -> None:
-        super().__init__(pos)
-        

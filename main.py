@@ -1,16 +1,27 @@
+
+from lexer import Lexer
+from parser import Parser
 from TypeChecker import TypeChecker
 from Environment import Environment
 
 import sys
 
-assert len(sys.argv) == 2, "Usage is python main.py [FILENAME]"
-
-test = TypeChecker(sys.argv[1])
-
-test.type_check()
+def main():
+    assert len(sys.argv) == 2, "Usage is python main.py [FILENAME]"
 
 
+    lexer = Lexer(sys.argv[1])
 
-test.ast.evaluate(Environment({}))
+    parser = Parser(lexer)
 
-print(test)
+    ast = parser.parse()
+
+    type_checker = TypeChecker()
+
+    type_checker.type_check(ast)
+
+    ast.evaluate(Environment({}))
+
+
+if __name__ == "__main__":
+    main()

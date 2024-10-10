@@ -21,3 +21,7 @@ class Environment:
 class Reference:
     def __init__(self, value) -> None:
         self.value = value
+
+class Value:
+    def __init__(self, value):
+        self.value = value

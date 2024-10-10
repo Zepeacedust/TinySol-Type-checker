@@ -3,12 +3,11 @@ from parser import Parser
 import Typing
 
 class TypeChecker:
-    def __init__(self, filename) -> None:
-        self.parser = Parser(filename)
-        self.ast = None
+    def __init__(self) -> None:
+        # add more functionality or remove class
+        pass
 
-    def type_check(self):
-        self.ast = self.parser.parse()
+    def type_check(self, ast):
         
         interfaces = {
             "int":Typing.Int(), 
@@ -24,18 +23,18 @@ class TypeChecker:
             )
         }
 
-        for interface in self.ast.interfaces:
+        for interface in ast.interfaces:
             interfaces[interface.name] = interface
 
 
         type_environment = Typing.TypeEnvironment({}, interfaces)
 
-        for interface in self.ast.interfaces:
+        for interface in ast.interfaces:
             interface.type_check(type_environment)
 
-        self.ast.type_check(type_environment)
+        ast.type_check(type_environment)
 
-        for contract in self.ast.contracts:
+        for contract in ast.contracts:
             type_environment.push({"this":contract.type_assignment})
 
             for method in contract.methods:
@@ -43,5 +42,5 @@ class TypeChecker:
 
             type_environment.pop()
 
-        for transaction in self.ast.transactions:
+        for transaction in ast.transactions:
             transaction.type_check(type_environment)

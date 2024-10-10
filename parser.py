@@ -4,8 +4,8 @@ import Typing
 
 
 class Parser:
-    def __init__(self, filename) -> None:
-        self.lexer = Lexer(filename)
+    def __init__(self, lexer) -> None:
+        self.lexer = lexer
 
     def parse(self) -> AST.Blockchain:
         interfaces = []
@@ -155,25 +155,30 @@ class Parser:
             
     def assignment_stmt(self):
         first = self.lexer.expect("set")
-        var = self.lexer.expect(type=TokenType.IDENTIFIER)
-        if self.lexer.lookahead().text == ":=":
-            self.lexer.expect(":=")
-            value = self.expression()
-            return AST.VarAssignmentStmt(first.pos, var.text, value)
-        
-        var = AST.VariableExpr(var.pos, var.text) 
-
-        while self.lexer.lookahead().text == ".":
-            self.lexer.expect(".")
-            field = self.lexer.expect(type=TokenType.IDENTIFIER).text
-            var = AST.FieldExpr(first.pos, var, field)
-        
+        var = self.l_value()
         
         self.lexer.expect(":=") 
         
         value = self.expression()
-        return AST.FieldAssignmentStmt(first.pos, var.name, var.field, value)
+        return AST.AssignmentStmt(first.pos, var, value)
 
+    # returns an L-value yielding AST node.
+    def l_value(self):
+        # Must start with a variable
+        token = self.lexer.expect(type=TokenType.IDENTIFIER)
+        var = AST.VariableExpr(token.pos, token.text)
+        # Can be repeated and interleaved field and array accesses
+        while self.lexer.lookahead().text == "." or self.lexer.lookahead().text == "[":
+            match self.lexer.next_token().text:
+                case ".":
+                    field = self.lexer.expect(type=TokenType.IDENTIFIER)
+                    var = AST.FieldExpr(var.pos, var, field.text)
+                case "[":
+                    index = self.expression()
+                    self.lexer.expect("]")
+                    var = AST.ArrayAccess(var.pos, var, index)
+        return var
+        
 
     def method_call(self):
         first = self.lexer.expect("call")
