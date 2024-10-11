@@ -177,4 +177,7 @@ class TypeEnvironment:
             ind -= 1
     
     def get_interface(self, name:str) -> Interface:
+        # TODO: elegantly handle arrays
+        if name[-2:] == "[]":
+            return Array(self.get_interface(name[:-2]))
         return self.interfaces[name]

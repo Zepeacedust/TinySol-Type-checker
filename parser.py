@@ -5,7 +5,7 @@ import Typing
 
 class Parser:
     def __init__(self, lexer) -> None:
-        self.lexer = lexer
+        self.lexer:Lexer = lexer
 
     def parse(self) -> AST.Blockchain:
         interfaces = []
@@ -96,9 +96,9 @@ class Parser:
         self.lexer.expect(text="field")
         name = self.lexer.expect(type=TokenType.IDENTIFIER)
         self.lexer.expect(text=":=")
-        value = self.lexer.expect(type=TokenType.CONSTANT)
+        value = self.constant()
         self.lexer.expect(text=";")
-        return AST.FieldDec(name.pos, name.text, value.text)
+        return AST.FieldDec(name.pos, name.text, value)
     
     def method_dec(self):
         name = self.lexer.expect(type=TokenType.IDENTIFIER)
@@ -278,33 +278,32 @@ class Parser:
         return first
 
     def unary(self):
-        first = self.lexer.next_token()
-        if first.type == TokenType.CONSTANT:
-            if first.text.isdigit():
-                curr =  AST.IntConstantExpr(first.pos, int(first.text))
-            else:
-                curr = AST.BoolConstantExpr(first.pos, first.text=="T")
-        
+        first = self.lexer.lookahead()
+        # Variables and fields
         if first.type == TokenType.IDENTIFIER:
+            self.lexer.next_token()
             curr = AST.VariableExpr(first.pos, first.text)
             while self.lexer.lookahead().text == ".":
                 self.lexer.expect(text=".")
                 field = self.lexer.expect(type=TokenType.IDENTIFIER)
                 curr = AST.FieldExpr(first.pos, curr, field.text)
+        
+        # parentheses
+        elif first.text == "(":
+            self.lexer.expect(text="(")
 
-        if first.text == "(":
             curr = self.expression()
 
             self.lexer.expect(text=")")
-        
-        if first.text == "[":
-            indicies = []
-            indicies.append(self.expression())
-            while self.lexer.lookahead().text == ",":
-                self.lexer.next_token()
-                indicies.append(self.expression())
+        # constants
+        else:
+            curr = self.constant()
+
+        while self.lexer.lookahead().text == "[":
+            self.lexer.next_token()
+            index = self.expression()
+            curr = AST.ArrayAccess(first.pos, curr, index)
             self.lexer.expect("]")
-        
 
         return curr
 
@@ -312,6 +311,13 @@ class Parser:
         self.lexer.expect("(")
 
         base = self.lexer.expect(type=TokenType.IDENTIFIER)
+
+
+        # TODO: elegant implementation for arrays
+        if self.lexer.lookahead().text == "[":
+            self.lexer.expect("[")
+            self.lexer.expect("]")
+            base.text += "[]"
 
         self.lexer.expect(",")
         level = self.lexer.next_token()
@@ -348,3 +354,25 @@ class Parser:
         self.lexer.expect(";")
         
         return AST.Transaction(caller.pos, caller.text, callee, method, variables, cost)
+
+    def constant(self):
+        first = self.lexer.lookahead()
+
+        # Int and bool constants
+        if first.type == TokenType.CONSTANT:
+            self.lexer.next_token()
+            if first.text.isdigit():
+                return AST.IntConstantExpr(first.pos, int(first.text))
+            else:
+                return AST.BoolConstantExpr(first.pos, first.text=="T")
+        
+        # arrays, may not be constants, must investigate
+        if first.text == "[":
+            self.lexer.next_token()
+            indices = []
+            indices.append(self.expression())
+            while self.lexer.lookahead().text == ",":
+                self.lexer.next_token()
+                indices.append(self.expression())
+            self.lexer.expect("]")
+            return AST.ArrayConstant(first.pos, indices)

@@ -1,4 +1,4 @@
-from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool, TypeEnvironment, Interface
+from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool, TypeEnvironment, Array, Interface
 
 from Environment import Environment, Reference, Value
 
@@ -64,6 +64,10 @@ class Blockchain(Node):
         for contract in self.contracts:
             env.push({contract.name:Reference(contract)})
         
+        for contract in self.contracts:
+            contract.evaluate(env)
+        
+
         for transaction in self.transactions:
             transaction.evaluate(env)
 
@@ -103,7 +107,13 @@ class Contract(Node):
         type_env.pop()
 
         return self.type_assignment
-
+    
+    def evaluate(self, env):
+        # Initialize fields, needed for technical reasons
+        # They should all techinally be decidable at compiletime
+        # TODO: enforce compile-time decidability.
+        for field in self.fields:
+            field.evaluate(env)
 class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
         super().__init__(pos)
@@ -121,10 +131,14 @@ class FieldDec(Node):
             raise Exception(f"{self.name} not included in interface {interface.name}")
         self.type_assignment = field.type
         
-        if isinstance(self.type_assignment.obj, Int):
-            self.value = int(self.value)
-        else:
-            self.value = self.value == "T"
+        self.value.type_check(type_env)
+        if not self.value.type_assignment < self.type_assignment:
+            raise TypeError(f"Assigning {self.value.type_assignment} to field of type {self.type_assignment} at {self.pos}")
+        
+    def evaluate(self, env):
+        self.value = self.value.evaluate(env).value
+        return super().evaluate(env)
+
 
         
 
@@ -650,12 +664,15 @@ class ArrayConstant(Expression):
     def type_check(self, type_env: TypeEnvironment):
         for index in self.indices:
             index.type_check(type_env)
-        
+        # TODO: finish implementing array type checking
+        self.type_assignment = self.indices[0].type_assignment
+        self.type_assignment.obj = Array(self.indices[0].type_assignment.obj)
+
     def evaluate(self, env: Environment):
         out = []
         for index in self.indices:
-            out.append(Reference(index.evaluate(env)))
-        return out
+            out.append(Reference(index.evaluate(env)).value)
+        return Value(out)
 
 class ArrayAccess(Expression):
     def __init__(self, pos, array, index):
@@ -668,10 +685,11 @@ class ArrayAccess(Expression):
         self.index.type_check(type_env)
         assert isinstance(self.index.type_assignment, Int), f"Index must be int, not {self.index.type_assignment.obj} at {self.pos}"
         self.type_assignment = self.array.type_assignment
+        self.type_assignment.obj = self.type_assignment.obj.contained
         self.type_assignment.sec = self.type_assignment.sec.join(self.index.type_assignment.sec)
         return self.type_assignment
 
     def evaluate(self, env: Environment):
-        array = self.array.evaluate(env)
-        index = self.index.evaluate()
+        array = self.array.evaluate(env).value
+        index = self.index.evaluate(env).value
         return array[index]

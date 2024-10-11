@@ -1,0 +1,24 @@
+interface i {
+    field called : (bool, 0);
+    field balance : (int, 0);
+    field memory : (int[], 0);
+    method main : ():0;
+    method send :():0;
+}
+
+contract cont: (i, 0) { 
+    field called := F;
+    field balance := 9;
+    field memory := [10,9,8,7,6,5,4,3,2,1];
+    main (  ) {
+        while (this.balance >= 0 ) 
+        do {
+            print this.memory[this.balance];
+            set this.balance := this.balance - 1;
+        };
+    }
+}
+
+
+
+cont->cont.main():100000;
