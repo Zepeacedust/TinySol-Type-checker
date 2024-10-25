@@ -82,6 +82,7 @@ class Contract(Node):
         self.type:Type = type
         self.fields:list[FieldDec] = fields
         self.methods:list[MethodDec] = methods
+        self.fallback:MethodDec = None
 
     def pprint(self,indent, highlightpos = (), highlighted = False):
         string = "\t" * indent + f"contract {self.name}" + " {\n"
@@ -115,10 +116,17 @@ class Contract(Node):
         for field in self.fields:
             field.evaluate(env)
     
-    def get_method(self, name):
+    def get_method(self, name, env:Environment):
+        # Clunky fallback special case
+        # TODO: find elegant solution
+        if name == "id":
+            s_call_name = env.lookup(name).value
+            if isinstance(s_call_name, str):
+                name = s_call_name
         for method in self.methods:
             if method.name == name:
                 return method
+        
             
 class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
@@ -569,7 +577,7 @@ class MethodCall(Statement):
     def get_magic_vars(self, env:Environment):
         caller = env.lookup("this").value
         callee:Contract = self.name.evaluate(env).value
-        method = callee.get_method(self.method)
+        method = callee.get_method(self.method, env)
         cost = self.cost.evaluate(env).value
 
         return caller, callee, method, cost
@@ -589,8 +597,16 @@ class MethodCall(Statement):
             "caller": Reference(caller),
             "this": Reference(callee)
         }
+        # Clunky special case for fallback function unrolling
+        # TODO: find elegant solution
+        if len(self.vars) == 1 and isinstance(self.vars[0], VariableExpr) and self.vars[0].name == "args":
+            rolled = self.vars[0].evaluate(env).value
+            if isinstance(rolled, list):
+                for ind in range(len(self.vars)):
+                    method_env[method.parameters[ind]] = rolled[ind]
+                    return method_env
         for ind in range(len(self.vars)):
-            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+            method_env[method.parameters[ind]] = self.vars[ind].evaluate(env)
         return method_env
 
     def pay_balance(self, caller, callee, cost):
@@ -605,13 +621,47 @@ class MethodCall(Statement):
     def evaluate(self, env: Environment):
         caller, callee, method, cost = self.get_magic_vars(env)
         
+        if method == None:
+            self.fallback_function(env)
+            return
+
         method_env = self.generate_env(env, caller, callee, cost, method)
 
         self.pay_balance(caller, callee, cost)
 
         self.evaluate_method(method, method_env, env)
 
+    def get_fallback_function(self, env)->MethodDec:
+        contract = self.name.evaluate(env).value
+        return contract.fallback
 
+    def fallback_function(self,env:Environment):
+        caller, callee, method, cost = self.get_magic_vars(env)
+        fallback = self.get_fallback_function(env)
+
+        if fallback == None:
+            raise RuntimeError(f"Calling nonexistant function at {self.pos}")
+
+        args = []
+
+        for ind in range(len(self.vars)):
+            args.append(self.vars[ind].evaluate(env))
+        
+        method_env = {
+            "caller":Reference(caller),
+            "this":Reference(callee),
+            "cost":Reference(cost),
+            "id":Reference(self.method),
+            "args":Reference(args)
+        }
+        
+        env.push(method_env)
+
+        for stmt in fallback.statements:
+            stmt.evaluate(env)
+        
+        env.pop()
+        
 
 class DelegateCall(MethodCall):
 
@@ -624,7 +674,7 @@ class DelegateCall(MethodCall):
 
         if not type_env.lookup("this") < self.name.type_assignment:
             raise TypeError(f"Delegating call to non-superclass at {self.pos}")
-    
+
     def get_magic_vars(self, env):
         # most of the magic vars are passed through,
         # but you still need to look up the method being called.
@@ -632,7 +682,7 @@ class DelegateCall(MethodCall):
         callee:Contract = env.lookup("this").value
 
         delegatee:Contract = self.name.evaluate(env).value
-        method = delegatee.get_method(self.method)
+        method = delegatee.get_method(self.method, env)
         cost = self.cost.evaluate(env).value
 
         return caller, callee, method, cost
@@ -646,10 +696,10 @@ class Transaction(MethodCall):
     def get_magic_vars(self, env):
         caller = self.caller.evaluate(env).value
         callee:Contract = self.name.evaluate(env).value
-        method = callee.get_method(self.method)
+        method = callee.get_method(self.method, env)
         cost = self.cost.evaluate(env).value
         return caller, callee, method, cost
-    
+
 class PrintStmt(Statement):
     def __init__(self, pos, expression) -> None:
         super().__init__(pos)

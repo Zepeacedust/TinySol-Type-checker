@@ -84,13 +84,20 @@ class Parser:
             fields.append(self.field())
         
         methods = []
+        fallback = None
 
         while self.lexer.lookahead().text != "}":
-            methods.append(self.method_dec())
+            new_method = self.method_dec()
+            if new_method.name == "fallback":
+                fallback = new_method
+            else:
+                methods.append(new_method)
         
         self.lexer.expect(text="}")
 
-        return AST.Contract(name.pos, name.text, type, fields, methods)
+        contract = AST.Contract(name.pos, name.text, type, fields, methods)
+        contract.fallback = fallback
+        return contract
 
     def field(self):
         self.lexer.expect(text="field")
@@ -152,7 +159,7 @@ class Parser:
                 return self.delegate_call()
             case "unsafe":
                 self.lexer.expect("unsafe")
-                stmt = self.statement
+                stmt = self.statement()
                 return AST.UnsafeStmt(stmt.pos, stmt)
             
     def assignment_stmt(self):

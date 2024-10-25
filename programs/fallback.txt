@@ -1,0 +1,42 @@
+interface user{
+    field balance : (int, 1);
+    field number: (int, 1);
+    method send : ():1;
+    method decide :():1;
+    method act:():1;
+}
+
+interface logger {
+    field balance : (int, 1);
+    method hello: ((int, 1) num):1;
+    method send : ():1;
+}
+
+contract log:(logger, 1) {
+    field balance := 1;
+    hello(num) {
+        print num;
+    }
+}
+
+contract usr: (user, 1) {
+    field balance := 100;
+    field number := 0;
+    send() {
+        skip;
+    }
+
+    fallback() {
+        unsafe call log.id(args);
+    }
+
+    decide() {
+        unsafe call this.deicide();
+    }
+    act() {
+        unsafe call this.hello(37);
+        print this.number;
+    }
+}
+
+usr->usr.act():1;
