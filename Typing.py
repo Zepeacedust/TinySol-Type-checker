@@ -31,14 +31,16 @@ class Interface:
             corresponds = self.get_field(field.name)
             if corresponds == None:
                 return False
-            if not corresponds < field:
+            # subtyping uses invariant rules for fields
+            if not corresponds == field:
                 return False
         
         for method in other.methods:
             corresponds = self.get_field(method.name)
             if corresponds == None:
                 return False
-            if not corresponds < method:
+            # Subtyping is invariant on methods
+            if not corresponds == method:
                 return False
         
          
@@ -47,9 +49,14 @@ class Int(Interface):
     def __init__(self) -> None:
         super().__init__("int", [], [])
 
+    def __lt__(self, other: Interface) -> bool:
+        return isinstance(other, Interface)
+
 class Bool(Interface):
     def __init__(self) -> None:
         super().__init__("bool", [], [])
+    def __lt__(self, other: Interface) -> bool:
+        return isinstance(other, Bool)
 
 class Array(Interface):
     def __init__(self, contained):
@@ -67,6 +74,9 @@ class Field:
     
     def __lt__(self, other:"Field") -> bool:
         return self.type < other.type
+    
+    def __eq__(self, value: object) -> bool:
+        return self.name == value.name and self.type == value.type
 
 class Method:
     def __init__(self, name, vars, type) -> None:
@@ -78,6 +88,9 @@ class Method:
         for variable in self.type.variables:
             self.type.variables[variable].obj = type_env.get_interface(self.type.variables[variable].obj)
         self.type.cmd_level = CmdType(SecurityLevel(int(self.type.cmd_level)))
+    
+    def __eq__(self, value: object) -> bool:
+        return self.name == value.name and self.type == value.type
 
 class Type:
     def __init__(self, obj, sec) -> None:
@@ -89,7 +102,7 @@ class Type:
 
     def __lt__(self, other:"Type") -> bool:
         #TODO: figure out proper interface subtyping
-        return self.sec <= other.sec and self.obj.name == other.obj.name
+        return self.sec <= other.sec and self.obj < other.obj
 
 class VarType:
     def __init__(self, type) -> None:
