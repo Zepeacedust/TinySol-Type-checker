@@ -114,6 +114,12 @@ class Contract(Node):
         # TODO: enforce compile-time decidability.
         for field in self.fields:
             field.evaluate(env)
+    
+    def get_method(self, name):
+        for method in self.methods:
+            if method.name == name:
+                return method
+            
 class FieldDec(Node):
     def __init__(self,pos, name, value) -> None:
         super().__init__(pos)
@@ -515,9 +521,12 @@ class MethodCall(Statement):
         self.vars:list[Expression] = vars
         self.cost:Expression = cost
 
-    def type_check(self, type_env:TypeEnvironment):
+    def type_check_children(self, type_env: TypeEnvironment):
         self.name.type_check(type_env)
         self.cost.type_check(type_env)
+
+    def get_method_obj(self):
+
         interface = self.name.type_assignment.obj
         
         method = interface.get_method(self.method)
@@ -525,7 +534,17 @@ class MethodCall(Statement):
         if method == None:
             raise TypeError(f"Trying to call nonexistant method at {self.pos}")
         
-        self.type_assignment = method.type.cmd_level
+        return method
+
+    def check_balance(self, type_env:TypeEnvironment):
+        interface = self.name.type_assignment.obj
+
+        balance_level = interface.get_field("balance").type.sec
+
+        if balance_level < self.type_assignment.level:
+            raise TypeError(f"Implicit write to balance writing to {balance_level} with method level {self.type_assignment.level} at {self.pos}")
+
+    def check_parameters(self, method, type_env:TypeEnvironment):
 
         # note that dict preserves order
         var_types = list(method.type.variables.items()) 
@@ -534,36 +553,28 @@ class MethodCall(Statement):
             if not self.vars[var].type_assignment < var_types[var][1]:
                 raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.vars[var].type_assignment} at {self.pos}")
 
-        balance_level = interface.get_field("balance").type.sec
+    def type_check(self, type_env:TypeEnvironment):
+        self.type_check_children(type_env)
 
-        if balance_level < self.type_assignment.level:
-            raise TypeError(f"Implicit write to balance writing to {balance_level} with method level {self.type_assignment.level} at {self.pos}")
+        method = self.get_method_obj()
 
+        self.type_assignment = method.type.cmd_level
+
+        self.check_balance(type_env)
+
+        self.check_parameters(method, type_env)
 
         return self.type_assignment
     
-    def evaluate(self, env: Environment):
-        callee:Contract = self.name.evaluate(env)
-        for method in callee.methods:
-            if method.name == self.method:
-                break
-        
-        method_env = {
-            "value": Reference(self.cost.evaluate(env)),
-            "caller": env.lookup("this"),
-            "this": Reference(callee)
-        }
+    def get_magic_vars(self, env:Environment):
+        caller = env.lookup("this").value
+        callee:Contract = self.name.evaluate(env).value
+        method = callee.get_method(self.method)
+        cost = self.cost.evaluate(env).value
 
-        for field in env.lookup("this").value.fields:
-            if field.name == "balance":
-                field.value -= self.cost
+        return caller, callee, method, cost
 
-        for field in callee.fields:
-            if field.name == "balance":
-                field.value += self.cost
-
-        for ind in range(len(self.vars)):
-            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+    def evaluate_method(self, method, method_env, env):
 
         env.push(method_env)
 
@@ -571,66 +582,73 @@ class MethodCall(Statement):
             statement.evaluate(env)
 
         env.pop()
-    
 
-class Transaction(Node):
-    def __init__(self, pos, caller, callee, method, variables, cost) -> None:
-        super().__init__(pos)
-        self.caller = caller
-        self.callee = callee
-        self.method = method
-        self.variables = variables
-        self.cost = cost
-    
-    def type_check(self, type_env:TypeEnvironment):
-        interface = type_env.lookup(self.callee).obj
-
-        method = interface.get_method(self.method)
-
-        # TODO: finish implemenetation
-
-        if method == None:
-            raise Exception(f"{self.method} not included in interface {interface.name}")
-
-        var_types = list(method.type.variables.items()) 
-        for var in range(len(method.type.variables)):
-            self.variables[var].type_check(type_env)
-            if not self.variables[var].type_assignment < var_types[var][1]:
-                raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.variables[var].type_assignment} at {self.pos}")
-
-
-        return super().type_check(type_env)
-    
-    def evaluate(self, env: Environment):
-        callee:Contract = env.lookup(self.callee).value
-        caller:Contract = env.lookup(self.caller).value
-        for method in callee.methods:
-            if method.name == self.method:
-                break
-        
+    def generate_env(self, env, caller, callee, cost, method):
         method_env = {
-            "value": Reference(self.cost),
+            "value": Reference(cost),
             "caller": Reference(caller),
             "this": Reference(callee)
         }
+        for ind in range(len(self.vars)):
+            method_env[method.parameters[ind]] = self.vars[ind].evaluate()
+        return method_env
 
+    def pay_balance(self, caller, callee, cost):
         for field in caller.fields:
             if field.name == "balance":
-                field.value -= self.cost
+                field.value -= cost
 
         for field in callee.fields:
             if field.name == "balance":
-                field.value += self.cost
-        # While everything is passed by value, the environment is made of references.
-        for ind in range(len(self.variables)):
-            method_env[method.parameters[ind]] = Reference(self.vars[ind].evaluate().value)
+                field.value += cost
 
-        env.push(method_env)
+    def evaluate(self, env: Environment):
+        caller, callee, method, cost = self.get_magic_vars(env)
+        
+        method_env = self.generate_env(env, caller, callee, cost, method)
 
-        for statement in method.statements:
-            statement.evaluate(env)
+        self.pay_balance(caller, callee, cost)
 
-        env.pop()
+        self.evaluate_method(method, method_env, env)
+
+
+
+class DelegateCall(MethodCall):
+
+    def type_check_children(self, type_env):
+        
+        super().type_check_children(type_env)
+
+        # Type checks exactly like a regular method call, 
+        # but the callee must be a supertype of the caller
+
+        if not type_env.lookup("this") < self.name.type_assignment:
+            raise TypeError(f"Delegating call to non-superclass at {self.pos}")
+    
+    def get_magic_vars(self, env):
+        # most of the magic vars are passed through,
+        # but you still need to look up the method being called.
+        caller = env.lookup("caller").value
+        callee:Contract = env.lookup("this").value
+
+        delegatee:Contract = self.name.evaluate(env).value
+        method = delegatee.get_method(self.method)
+        cost = self.cost.evaluate(env).value
+
+        return caller, callee, method, cost
+
+class Transaction(MethodCall):
+
+    def __init__(self, pos, caller, callee, method, vars, cost):
+        super().__init__(pos, callee, method, vars, cost)
+        self.caller = caller
+
+    def get_magic_vars(self, env):
+        caller = self.caller.evaluate(env).value
+        callee:Contract = self.name.evaluate(env).value
+        method = callee.get_method(self.method)
+        cost = self.cost.evaluate(env).value
+        return caller, callee, method, cost
     
 class PrintStmt(Statement):
     def __init__(self, pos, expression) -> None:
@@ -657,6 +675,7 @@ class UnsafeStmt(Statement):
         return self.type_assignment
 
 class ArrayConstant(Expression):
+    # array objects consist of a list of references
     def __init__(self, pos, indices):
         super().__init__(pos)
         self.indices:list[Expression] = indices
@@ -668,6 +687,8 @@ class ArrayConstant(Expression):
         self.type_assignment = self.indices[0].type_assignment
         self.type_assignment.obj = Array(self.indices[0].type_assignment.obj)
 
+    # weird consequence, they are passed by value, but the value is a python list
+    # which is a reference
     def evaluate(self, env: Environment):
         out = []
         for index in self.indices:
@@ -693,3 +714,4 @@ class ArrayAccess(Expression):
         array = self.array.evaluate(env).value
         index = self.index.evaluate(env).value
         return array[index]
+

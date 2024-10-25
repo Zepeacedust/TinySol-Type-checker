@@ -1,0 +1,44 @@
+interface library {
+    field balance : (int, 1);
+    field number: (int, 1);
+    method send : ():1;
+    method decide :():1;
+}
+
+interface user{
+    field balance : (int, 1);
+    field number: (int, 1);
+    method send : ():1;
+    method decide :():1;
+    method act:():1;
+}
+
+contract lib: (library, 1) {
+    field balance := 100;
+    field number := 0;
+    send() {
+        skip;
+    }
+
+    decide() {
+        set this.number := 1;
+    }
+}
+
+contract usr: (user, 1) {
+    field balance := 100;
+    field number := 0;
+    send() {
+        skip;
+    }
+
+    decide() {
+        dcall lib.decide();
+    }
+    act() {
+        call this.decide();
+        print this.number;
+    }
+}
+
+usr->usr.act():1;

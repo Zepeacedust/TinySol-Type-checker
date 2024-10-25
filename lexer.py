@@ -51,7 +51,8 @@ KEYWORDS = [
     "set",
     "call",
     "print",
-    "unsafe"
+    "unsafe",
+    "dcall"
 ]
 
 

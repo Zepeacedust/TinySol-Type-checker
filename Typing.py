@@ -31,18 +31,16 @@ class Interface:
             corresponds = self.get_field(field.name)
             if corresponds == None:
                 return False
-            # subtyping uses invariant rules for fields
             if not corresponds == field:
                 return False
         
         for method in other.methods:
-            corresponds = self.get_field(method.name)
+            corresponds = self.get_method(method.name)
             if corresponds == None:
                 return False
-            # Subtyping is invariant on methods
             if not corresponds == method:
                 return False
-        
+        return True
          
 
 class Int(Interface):
@@ -78,6 +76,10 @@ class Field:
     def __eq__(self, value: object) -> bool:
         return self.name == value.name and self.type == value.type
 
+    def __eq__(self, other):
+        if other == None:
+            return False
+        return self.type == other.type
 class Method:
     def __init__(self, name, vars, type) -> None:
         self.name:str = name
@@ -89,8 +91,10 @@ class Method:
             self.type.variables[variable].obj = type_env.get_interface(self.type.variables[variable].obj)
         self.type.cmd_level = CmdType(SecurityLevel(int(self.type.cmd_level)))
     
-    def __eq__(self, value: object) -> bool:
-        return self.name == value.name and self.type == value.type
+    def __eq__(self, other):
+        if other == None:
+            return False
+        return self.type == other.type
 
 class Type:
     def __init__(self, obj, sec) -> None:
@@ -103,6 +107,9 @@ class Type:
     def __lt__(self, other:"Type") -> bool:
         #TODO: figure out proper interface subtyping
         return self.sec <= other.sec and self.obj < other.obj
+
+    def __eq__(self, value):
+        return self.obj == value.obj and self.sec == value.sec
 
 class VarType:
     def __init__(self, type) -> None:
@@ -121,12 +128,26 @@ class CmdType:
         if self.level<other.level:
             return self
         return other
+    def __eq__(self, value):
+        return self.level == value.level
 
 
 class ProcType:
     def __init__(self, variables, cmd_level) -> None:
         self.variables:dict[str:Type] = variables
         self.cmd_level:CmdType = cmd_level
+    
+    def __eq__(self, value):
+        if not self.cmd_level == value.cmd_level:
+            return False
+        
+        if not len(self.variables) == len(value.variables):
+            return False
+
+        for i in range(len(self.variables)):
+            if not self.variables[i] == value.variables[i]:
+                return False
+        return True
 
 class SecurityLevel:
     def __init__(self, level=0, min=False, max=False) -> None:
