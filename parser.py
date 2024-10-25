@@ -148,6 +148,8 @@ class Parser:
                 self.lexer.expect("print")
                 expr = self.expression()
                 return AST.PrintStmt(expr.pos, expr)
+            case "dcall":
+                return self.delegate_call()
             case "unsafe":
                 self.lexer.expect("unsafe")
                 stmt = self.statement
@@ -179,6 +181,35 @@ class Parser:
                     var = AST.ArrayAccess(var.pos, var, index)
         return var
         
+
+    def delegate_call(self):
+        first = self.lexer.expect("dcall")
+
+        field = self.expression()
+
+        if not isinstance(field, AST.FieldExpr):
+            raise SyntaxError(f"Trying to call non-method object at {first.pos}")
+
+        vars = []
+
+        self.lexer.expect(text="(")
+
+        if self.lexer.lookahead().text != ")":
+            vars.append(self.expression())
+        
+        while self.lexer.lookahead().text == ",":
+            self.lexer.expect(",")
+            vars.append(self.expression())
+        self.lexer.expect(text=")")
+        
+        cost = AST.IntConstantExpr(first.pos, 0)
+
+        if self.lexer.lookahead().text == ":":
+            self.lexer.expect(text=":")
+            cost = self.expression()
+        
+        return AST.DelegateCall(first.pos, field.name, field.field, vars, cost)
+
 
     def method_call(self):
         first = self.lexer.expect("call")
@@ -335,11 +366,15 @@ class Parser:
         return Typing.Type(base.text, level)
         
     def transaction(self):
-        caller = self.lexer.expect(type=TokenType.IDENTIFIER)
+        caller = self.expression()
         self.lexer.expect("->")
-        callee = self.lexer.expect(type=TokenType.IDENTIFIER).text
-        self.lexer.expect(".")
-        method = self.lexer.expect(type=TokenType.IDENTIFIER).text
+        method_expression = self.expression()
+        
+        if not isinstance(method_expression, AST.FieldExpr):
+            raise SyntaxError(f"Invalid transaction at {caller.pos}")
+
+        callee = method_expression.name
+        method = method_expression.field
         self.lexer.expect("(")
         variables = []
         while self.lexer.lookahead().text != ")":
@@ -350,10 +385,10 @@ class Parser:
                 break
         self.lexer.expect(")")
         self.lexer.expect(":")
-        cost = int(self.lexer.expect(type=TokenType.CONSTANT).text)
+        cost = self.constant()
         self.lexer.expect(";")
         
-        return AST.Transaction(caller.pos, caller.text, callee, method, variables, cost)
+        return AST.Transaction(caller.pos, caller, callee, method, variables, cost)
 
     def constant(self):
         first = self.lexer.lookahead()
