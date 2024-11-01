@@ -7,7 +7,7 @@ types are represented as a tuple of (data_type, security level)
 Add some changes in statement rules.
 
 Stm -> set L:= e
-Stm -> call e_1.f(e~):e_2,
+Stm -> call e_1.f(e~):e_2
 
 this means that every statement starts with a specific keyword, vastly reducing ambiguity.
 
@@ -29,9 +29,3 @@ expression must be integer
 stmt -> unsafe stmt
 
 just don't type check it, will still execute.
-
-## explicit inheritance
-change interface definition to be 
-interface NAME extends NAME {
-
-}
