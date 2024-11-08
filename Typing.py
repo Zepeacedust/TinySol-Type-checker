@@ -144,7 +144,7 @@ class ProcType:
         if not len(self.variables) == len(value.variables):
             return False
 
-        for i in range(len(self.variables)):
+        for i in self.variables:
             if not self.variables[i] == value.variables[i]:
                 return False
         return True

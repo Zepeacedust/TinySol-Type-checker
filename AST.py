@@ -29,8 +29,8 @@ class Node:
         pass
     
     def type_error(self, description):
-        nice_trace = self.pprint()
-        raise TypeError(description + "\n" + nice_trace)
+        #nice_trace = self.pprint(0)
+        raise TypeError(f"at line {self.pos[0] + 1} column {self.pos[1] + 1}: \n" + description)
 
 class Expression(Node):
     def __init__(self, pos) -> None:
@@ -142,12 +142,12 @@ class FieldDec(Node):
         
         field = interface.get_field(self.name)
         if field == None:
-            raise Exception(f"{self.name} not included in interface {interface.name}")
+            self.type_error(f"{self.name} not included in interface {interface.name}")
         self.type_assignment = field.type
         
         self.value.type_check(type_env)
         if not self.value.type_assignment < self.type_assignment:
-            raise TypeError(f"Assigning {self.value.type_assignment} to field of type {self.type_assignment} at {self.pos}")
+            self.type_error(f"Assigning {self.value.type_assignment} to field of type {self.type_assignment}")
         
     def evaluate(self, env):
         self.value = self.value.evaluate(env).value
@@ -175,7 +175,7 @@ class MethodDec(Node):
         interface = type_env.lookup("this").obj
         method = interface.get_method(self.name)
         if method == None:
-            raise Exception(f"{self.name} not included in interface {interface.name}")
+            self.type_error(f"{self.name} not included in interface {interface.name}")
         
 
         self.type_assignment = method.type
@@ -196,7 +196,7 @@ class MethodDec(Node):
             cmd_level = cmd_level.join(statement.type_assignment)
 
             if cmd_level.level < self.type_assignment.cmd_level.level:
-                raise TypeError(f"Method of level {self.type_assignment.cmd_level.level} tries to access {cmd_level.level} at {statement.pos}")
+                statement.type_error(f"Method of level {self.type_assignment.cmd_level.level} tries to access {cmd_level.level}")
 
         type_env.pop()
 
@@ -226,7 +226,7 @@ class AssignmentStmt(Statement):
         self.rhs.type_check(type_env)
         self.lhs.type_check(type_env)
         if not self.rhs.type_assignment < self.lhs.type_assignment:
-            raise TypeError(f"Assigning type {self.rhs.type_assignment} to variable of type {self.lhs} at {self.pos}")
+            self.type_error(f"Assigning type {self.rhs.type_assignment} to variable of type {self.lhs}")
         
         self.type_assignment = CmdType(self.lhs.type_assignment.sec)
 
@@ -317,7 +317,7 @@ class IfStmt(Statement):
             cmd_lvl = cmd_lvl.join(statement.type_assignment)
 
         if self.cond.type_assignment.sec > cmd_lvl.level:
-            raise TypeError(f"Expression reads from higher than is written to at {self.pos}")
+            self.type_error(f"Expression reads from higher than is written to at {self.pos}")
         
         self.type_assignment=cmd_lvl
     
@@ -355,7 +355,7 @@ class WhileStmt(Statement):
             cmd_lvl = cmd_lvl.join(statement.type_assignment)
 
         if self.cond.type_assignment.sec > cmd_lvl.level:
-            raise TypeError(f"Expression reads from {self.cond.type_assignment.sec} but writes to {cmd_lvl.level} at {self.pos}")
+            self.type_error(f"Expression reads from {self.cond.type_assignment.sec} but writes to {cmd_lvl.level}")
 
 
         self.type_assignment = cmd_lvl
@@ -397,7 +397,7 @@ class BindStmt(Statement):
             cmd_lvl = cmd_lvl.join(statement.type_assignment)
         
         if self.expr.type_assignment.sec > cmd_lvl.level:
-            raise TypeError(f"Expression reads from higher than is written to at {self.pos}")
+            self.type_error(f"Expression reads from higher than is written to")
     
     def evaluate(self, env: Environment):
         env.push({self.name:Reference(self.expr.evaluate(env).value)})
@@ -453,29 +453,31 @@ class BinaryOp(Expression):
 
         #operators on ints that give ints
         if self.op in ["+", "-", "*"]:
-            assert isinstance(self.lhs.type_assignment.obj, Int) 
-            assert isinstance(self.rhs.type_assignment.obj, Int)
+            if not isinstance(self.lhs.type_assignment.obj, Int):
+                self.type_error(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.lhs.type_assignment.obj}")
+            if not isinstance(self.rhs.type_assignment.obj, Int):
+                self.type_error(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.rhs.type_assignment.obj}")
             self.type_assignment = Type(Int(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
         #operators on ints that give bools
         elif self.op in ["<",">",">=","<="]:
 
             if not isinstance(self.lhs.type_assignment.obj, Int):
-                raise TypeError(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.lhs.type_assignment.obj}")
+                self.type_error(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.lhs.type_assignment.obj}")
             if not isinstance(self.rhs.type_assignment.obj, Int):
-                raise TypeError(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.rhs.type_assignment.obj}")
+                self.type_error(f"Expected int, but got {type(self.lhs.type_assignment.obj)} {self.rhs.type_assignment.obj}")
 
             self.type_assignment = Type(Bool(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
         #operators on bool that give bools
         elif self.op in ["&&", "||"]:
             if not isinstance(self.lhs.type_assignment.obj, Bool):
-                raise TypeError(f"Expected bool, but got {type(self.lhs.type_assignment.obj)} {self.lhs.type_assignment.obj}")
+                self.type_error(f"Expected bool, but got {type(self.lhs.type_assignment.obj)} {self.lhs.type_assignment.obj}")
             if not isinstance(self.rhs.type_assignment.obj, Bool):
-                raise TypeError(f"Expected bool, but got {type(self.lhs.type_assignment.obj)} {self.rhs.type_assignment.obj}")
+                self.type_error(f"Expected bool, but got {type(self.lhs.type_assignment.obj)} {self.rhs.type_assignment.obj}")
             self.type_assignment = Type(Bool(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
         #operations on comparable types that give bools
         elif self.op == "==":
             if not type(self.lhs.type_assignment.obj) == type(self.rhs.type_assignment.obj):
-                raise TypeError(f"Incomparable types {type(self.lhs.type_assignment.obj)} and {type(self.rhs.type_assignment.obj)} at {self.pos}")
+                self.type_error(f"Incomparable types {type(self.lhs.type_assignment.obj)} and {type(self.rhs.type_assignment.obj)}")
             self.type_assignment = Type(Bool(), self.lhs.type_assignment.sec.join(self.rhs.type_assignment.sec))
 
 
@@ -540,7 +542,7 @@ class MethodCall(Statement):
         method = interface.get_method(self.method)
 
         if method == None:
-            raise TypeError(f"Trying to call nonexistant method at {self.pos}")
+            self.type_error(f"Trying to call nonexistant method")
         
         return method
 
@@ -550,7 +552,7 @@ class MethodCall(Statement):
         balance_level = interface.get_field("balance").type.sec
 
         if balance_level < self.type_assignment.level:
-            raise TypeError(f"Implicit write to balance writing to {balance_level} with method level {self.type_assignment.level} at {self.pos}")
+            self.type_error(f"Implicit write to balance writing to {balance_level} with method level {self.type_assignment.level}")
 
     def check_parameters(self, method, type_env:TypeEnvironment):
 
@@ -559,7 +561,7 @@ class MethodCall(Statement):
         for var in range(len(method.type.variables)):
             self.vars[var].type_check(type_env)
             if not self.vars[var].type_assignment < var_types[var][1]:
-                raise TypeError(f"Invalid parameter, expected {var_types[var][1]} but got {self.vars[var].type_assignment} at {self.pos}")
+                self.type_error(f"Invalid parameter, expected {var_types[var][1]} but got {self.vars[var].type_assignment}")
 
     def type_check(self, type_env:TypeEnvironment):
         self.type_check_children(type_env)
@@ -673,7 +675,7 @@ class DelegateCall(MethodCall):
         # but the callee must be a supertype of the caller
 
         if not type_env.lookup("this") < self.name.type_assignment:
-            raise TypeError(f"Delegating call to non-superclass at {self.pos}")
+            sef.type_error(f"Delegating call to non-superclass")
 
     def get_magic_vars(self, env):
         # most of the magic vars are passed through,
@@ -754,7 +756,8 @@ class ArrayAccess(Expression):
     def type_check(self, type_env: TypeEnvironment):
         self.array.type_check(type_env)
         self.index.type_check(type_env)
-        assert isinstance(self.index.type_assignment, Int), f"Index must be int, not {self.index.type_assignment.obj} at {self.pos}"
+        if not isinstance(self.index.type_assignment, Int):
+            self.type_error(f"Index must be int, not {self.index.type_assignment.obj}")
         self.type_assignment = self.array.type_assignment
         self.type_assignment.obj = self.type_assignment.obj.contained
         self.type_assignment.sec = self.type_assignment.sec.join(self.index.type_assignment.sec)
