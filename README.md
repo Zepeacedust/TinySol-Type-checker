@@ -98,6 +98,7 @@ TYPE -> (id, SEC)
 SEC -> min | max | number
 ```
 
+Comments are started with a # and last until the end of the line.
 
 ## Security levels
 In this implementation 
@@ -112,4 +113,4 @@ When an type-error is reported, the system will assume some permissive type and 
 
 For Expressions, that type is (int, min), and for statements that type is (max)
 
-This may lead to nonsensical errors downline.
+This may lead to unexpected errors downline.

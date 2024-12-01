@@ -19,7 +19,8 @@ contract X: (low, 0) {
 contract Y : (high, 1) {
     field balance := 1;
     go () { 
-        X.go ():this.balance;
+        # This should fail here, since X is low but go is high
+        call X.go ():this.balance;
     }
 }
 

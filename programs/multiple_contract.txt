@@ -18,13 +18,14 @@ interface C {
 
 
 contract X : (A, 0) { 
-    go () { 
+    go () {
+        # This should fail here, since Y.balance is high, while X.go is low 
         if ( Y . balance == 0 ) 
         then { 
-            Z . a ();
+            call Z . a ();
         }
         else {
-            Z . b ();
+            call Z . b ();
         };
     } 
 }

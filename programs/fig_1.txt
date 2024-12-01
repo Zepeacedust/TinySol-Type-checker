@@ -12,7 +12,6 @@ interface high {
     method send :():1;
 }
 
-# Testing testing
 contract X: (low, 0) { 
     field called := F;
     field balance := 1;
@@ -30,6 +29,8 @@ contract X: (low, 0) {
 contract Y: (high, 1){
     field balance := 1;
     deposit ( x ) {
+        # this file should error here, 
+        # since x is a low variable, but deposit is a high function
         call x . transfer ( this ) :0;
     }
 }

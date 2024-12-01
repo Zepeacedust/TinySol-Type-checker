@@ -120,8 +120,13 @@ class Lexer:
             self.lookahead_buffer = None
             return out
 
-        while self.ch in WHITESPACE:
-            self.next_character()
+        while self.ch in WHITESPACE or self.ch == COMMENT:
+            if self.ch == COMMENT:
+                while self.ch != "\n":
+                    self.next_character()
+            else:
+                self.next_character()
+
         
         if self.ch == COMMENT:
             while self.ch != "\n":

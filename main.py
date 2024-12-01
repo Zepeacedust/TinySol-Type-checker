@@ -10,15 +10,12 @@ def parse_command_line():
     run = True
     type_check = True
     filename = None
-    stop_on_error = False
     i = 1
     while i < len(sys.argv):
         if sys.argv[i] == "--no-check":
             type_check = False
         elif sys.argv[i] == "--no-run":
             run = False
-        elif sys.argv[i] == "--stop-on-error":
-            stop_on_error = True
         else:
             if filename == None:
                 filename = sys.argv[i]
@@ -35,7 +32,7 @@ def parse_command_line():
 def main():
 
     
-    filename, type_check, run, stop_on_error = parse_command_line()
+    filename, type_check, run = parse_command_line()
 
     lexer = Lexer(sys.argv[1])
 
@@ -44,7 +41,7 @@ def main():
     ast = parser.parse()
 
     if type_check:
-        type_checker = TypeChecker(stop_on_error)
+        type_checker = TypeChecker()
 
         type_checker.type_check(ast)
         print("Type checking complete")

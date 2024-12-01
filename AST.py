@@ -22,12 +22,12 @@ class Node:
 class Expression(Node):
     def __init__(self, pos) -> None:
         super().__init__(pos)
-        self.type_assignment: Type = Type(None, SecurityLevel(min=True))
+        self.type_assignment: Type = Type(Int(), SecurityLevel(0, min=True))
 
 class Statement(Node):
     def __init__(self, pos) -> None:
         super().__init__(pos)
-        self.type_assignment: CmdType
+        self.type_assignment: CmdType = CmdType(SecurityLevel(0, max=True))
 
 class Blockchain(Node):
     def __init__(self, interfaces, contracts, transactions) -> None:
