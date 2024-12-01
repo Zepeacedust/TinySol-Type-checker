@@ -30,7 +30,7 @@ class Node:
     
     def type_error(self, description):
         #nice_trace = self.pprint(0)
-        raise TypeError(f"at line {self.pos[0] + 1} column {self.pos[1] + 1}: \n" + description)
+        print(f"at line {self.pos[0] + 1} column {self.pos[1] + 1}: \n" + description)
 
 class Expression(Node):
     def __init__(self, pos) -> None:

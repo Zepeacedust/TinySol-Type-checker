@@ -12,7 +12,7 @@ interface high {
     method send :():1;
 }
 
-
+# Testing testing
 contract X: (low, 0) { 
     field called := F;
     field balance := 1;

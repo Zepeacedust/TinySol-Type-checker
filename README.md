@@ -20,8 +20,13 @@ python main.py [FILENAME]
 ```
 
 ## language
-The language has a few minor changes from the one described in the paper, they are documented in Desin\_Changes.txt
+The language has a few minor changes from the one described in the paper, they are documented in Design\_Changes.txt.
 
+
+### Comments
+Single line comments are started with # at any point in the line, after which the lexer will ignore the rest of the line.
+
+### Context free grammar
 ```
 S -> INTERFACE_DEC CONTRACT_DEC TRANSACTION
 
@@ -90,6 +95,17 @@ CONSTANT -> number | T | F
 TYPE -> (id, SEC)
 
 SEC -> min | max | number
-
 ```
-TODO: Add full grammar.
+
+## Security levels
+In this implementation 
+The Security levels form a total order, where for every number n, min < n < max. 
+Numbers follow a standard total order of the integers where the highest number have the maximum security.
+
+
+
+## Examples
+The programs folder contains a few example files. 
+
+## Errors
+
