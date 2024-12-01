@@ -2,18 +2,6 @@ from Typing import Type, VarType, ProcType, SecurityLevel, CmdType, Int, Bool, T
 
 from Environment import Environment, Reference, Value
 
-# import decorator
-
-# @decorator.decorator
-# def error_decorator(f, args, *kwargs):
-#     def wrapper(args, *kwargs):
-#         try: 
-#             f(args, *kwargs)
-#         except TypeError as e:
-#             print(e)
-#             print("cought_e, passing it along")
-#             raise e
-
 class Node:
     def __init__(self, pos) -> None:
         self.pos:tuple[int, int] = pos
@@ -29,13 +17,12 @@ class Node:
         pass
     
     def type_error(self, description):
-        #nice_trace = self.pprint(0)
-        raise TypeError(f"at line {self.pos[0] + 1} column {self.pos[1] + 1}: \n" + description)
+        print(f"Type error at line {self.pos[0] + 1} column {self.pos[1] + 1}: \n" + description)
 
 class Expression(Node):
     def __init__(self, pos) -> None:
         super().__init__(pos)
-        self.type_assignment: Type
+        self.type_assignment: Type = Type(, SecurityLevel(min=True))
 
 class Statement(Node):
     def __init__(self, pos) -> None:
@@ -675,7 +662,7 @@ class DelegateCall(MethodCall):
         # but the callee must be a supertype of the caller
 
         if not type_env.lookup("this") < self.name.type_assignment:
-            sef.type_error(f"Delegating call to non-superclass")
+            self.type_error(f"Delegating call to non-superclass")
 
     def get_magic_vars(self, env):
         # most of the magic vars are passed through,

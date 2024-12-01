@@ -16,9 +16,10 @@ It requires no packages not included in a standard python installation.
 Standard invocation is 
 
 ```
-python main.py [FILENAME]
+python main.py filename [Options]
 ```
 
+with the options --no-check to skip type checking and --no-run to skip running the program afterwards.
 ## language
 The language has a few minor changes from the one described in the paper, they are documented in Desin\_Changes.txt
 
@@ -92,4 +93,10 @@ TYPE -> (id, SEC)
 SEC -> min | max | number
 
 ```
-TODO: Add full grammar.
+
+## Errors
+When an type-error is reported, the system will assume some permissive type and continue with the type checking.
+
+For Expressions, that type is (int, min), and for statements that type is (max)
+
+This may lead to nonsensical errors downline.
