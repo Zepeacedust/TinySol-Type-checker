@@ -22,7 +22,7 @@ class Node:
 class Expression(Node):
     def __init__(self, pos) -> None:
         super().__init__(pos)
-        self.type_assignment: Type = Type(, SecurityLevel(min=True))
+        self.type_assignment: Type = Type(None, SecurityLevel(min=True))
 
 class Statement(Node):
     def __init__(self, pos) -> None:

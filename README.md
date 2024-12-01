@@ -21,8 +21,13 @@ python main.py filename [Options]
 
 with the options --no-check to skip type checking and --no-run to skip running the program afterwards.
 ## language
-The language has a few minor changes from the one described in the paper, they are documented in Desin\_Changes.txt
+The language has a few minor changes from the one described in the paper, they are documented in Design\_Changes.txt.
 
+
+### Comments
+Single line comments are started with # at any point in the line, after which the lexer will ignore the rest of the line.
+
+### Context free grammar
 ```
 S -> INTERFACE_DEC CONTRACT_DEC TRANSACTION
 
@@ -91,8 +96,16 @@ CONSTANT -> number | T | F
 TYPE -> (id, SEC)
 
 SEC -> min | max | number
-
 ```
+
+
+## Security levels
+In this implementation 
+The Security levels form a total order, where for every number n, min < n < max. 
+Numbers follow a standard total order of the integers where the highest number have the maximum security.
+
+## Examples
+The programs folder contains a few example files. 
 
 ## Errors
 When an type-error is reported, the system will assume some permissive type and continue with the type checking.

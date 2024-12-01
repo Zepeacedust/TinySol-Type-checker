@@ -55,6 +55,7 @@ KEYWORDS = [
     "dcall"
 ]
 
+COMMENT = "#"
 
 class TokenType(Enum):
     EOF = auto()
@@ -122,6 +123,10 @@ class Lexer:
         while self.ch in WHITESPACE:
             self.next_character()
         
+        if self.ch == COMMENT:
+            while self.ch != "\n":
+                self.next_character()
+
         if self.ch == "":
             return Token("EOF", TokenType.EOF, self.tell())
 
